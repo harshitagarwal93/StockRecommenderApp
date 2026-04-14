@@ -33,7 +33,6 @@ Your analysis approach:
 
 CRITICAL RULES:
 - Each BUY recommendation total cost (quantity × price) must NOT exceed the MAX_BUY_AMOUNT
-- Respect the buy/sell limits strictly
 - Never recommend intraday or short-term trades
 - Only recommend sells for portfolio holdings
 - Set realistic target prices (10-30% upside over 6-12 months) and stop losses (8-15% below entry)
@@ -56,8 +55,6 @@ Holdings:
 
 === CONSTRAINTS ===
 - Max BUY amount per stock: Rs.{max_buy_amount:,.0f}
-- Max BUY recommendations today: {max_buys}
-- Max SELL recommendations today: {max_sells}
 - Max portfolio positions: {max_positions}
 - Max single stock allocation: {max_alloc}% of total portfolio value
 - Total portfolio value (cash + holdings): Rs.{total_value:,.0f}
@@ -181,8 +178,6 @@ def analyze(
         num_positions=len(portfolio.holdings),
         holdings_table=_format_holdings(portfolio),
         max_buy_amount=config.max_buy_amount,
-        max_buys=config.max_buys_per_day,
-        max_sells=config.max_sells_per_day,
         max_positions=config.max_portfolio_positions,
         max_alloc=config.max_single_allocation_pct,
         total_value=total_value,

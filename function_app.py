@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import os
 from datetime import datetime, timezone
 
 import azure.functions as func
@@ -83,12 +84,10 @@ def get_settings(req: func.HttpRequest) -> func.HttpResponse:
 
     return func.HttpResponse(json.dumps({
         "max_buy_amount": _config.max_buy_amount,
-        "max_buys_per_day": _config.max_buys_per_day,
-        "max_sells_per_day": _config.max_sells_per_day,
         "max_portfolio_positions": _config.max_portfolio_positions,
         "max_single_allocation_pct": _config.max_single_allocation_pct,
         "llm_provider": _config.llm_provider,
-        "llm_model": _config.azure_ai_deployment if _config.llm_provider == "azure_foundry" else "gpt-4o",
+        "llm_model": os.environ.get("AZURE_AI_DEPLOYMENT", _config.azure_ai_deployment),
         "kite_connected": token_valid,
         "kite_login_url": f"https://kite.zerodha.com/connect/login?v=3&api_key={_config.kite_api_key}" if _config.kite_api_key else "",
     }), mimetype="application/json")

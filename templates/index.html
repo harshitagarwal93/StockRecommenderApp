@@ -210,18 +210,6 @@
                     </div>
                     <div class="col-6 col-md-4 col-lg-3">
                         <div class="stat-card p-3">
-                            <div class="stat-label">Max Buys/Day</div>
-                            <div class="fw-bold" id="cfgMaxBuysDay">—</div>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <div class="stat-card p-3">
-                            <div class="stat-label">Max Sells/Day</div>
-                            <div class="fw-bold" id="cfgMaxSellsDay">—</div>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-4 col-lg-3">
-                        <div class="stat-card p-3">
                             <div class="stat-label">LLM Model</div>
                             <div class="fw-bold" id="cfgModel">—</div>
                         </div>
@@ -262,8 +250,8 @@
                     document.getElementById('cfgMaxBuy').textContent = `₹${fmt(s.max_buy_amount)}`;
                     document.getElementById('defaultBuyAmt').textContent = fmt(s.max_buy_amount);
                     document.getElementById('buyAmountInput').placeholder = `e.g. ${fmt(s.max_buy_amount)}`;
-                    document.getElementById('cfgMaxBuysDay').textContent = s.max_buys_per_day;
-                    document.getElementById('cfgMaxSellsDay').textContent = s.max_sells_per_day;
+                    document.getElementById('cfgMaxBuysDay') && (document.getElementById('cfgMaxBuysDay').textContent = s.max_buys_per_day);
+                    document.getElementById('cfgMaxSellsDay') && (document.getElementById('cfgMaxSellsDay').textContent = s.max_sells_per_day);
                     document.getElementById('cfgModel').textContent = s.llm_model;
                     document.getElementById('modelBadge').textContent = `Model: ${s.llm_model}`;
 

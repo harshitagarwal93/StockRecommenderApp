@@ -41,8 +41,6 @@ class Config:
     # Portfolio constraints
     initial_capital: float = float(os.getenv("INITIAL_CAPITAL", "500000"))
     max_buy_amount: float = float(os.getenv("MAX_BUY_AMOUNT", "10000"))
-    max_buys_per_day: int = int(os.getenv("MAX_BUYS_PER_DAY", "3"))
-    max_sells_per_day: int = int(os.getenv("MAX_SELLS_PER_DAY", "2"))
     max_portfolio_positions: int = int(os.getenv("MAX_PORTFOLIO_POSITIONS", "15"))
     max_single_allocation_pct: int = int(os.getenv("MAX_SINGLE_ALLOCATION_PCT", "15"))
 
