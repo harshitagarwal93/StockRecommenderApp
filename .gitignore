@@ -11,4 +11,5 @@ venv/
 .python_packages/
 
 deploy.zip
+func-deploy.zip
 local.settings.json

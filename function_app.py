@@ -10,7 +10,7 @@ from stock_advisor.cosmos_store import CosmosStore
 from stock_advisor.orchestrator import run_daily_analysis
 from stock_advisor.portfolio_manager import PortfolioManager
 
-app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
