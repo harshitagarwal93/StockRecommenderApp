@@ -29,9 +29,9 @@ def _pm() -> PortfolioManager:
     return PortfolioManager(_config, _store)
 
 
-@app.timer_trigger(schedule="0 30 3 * * 1-5", arg_name="timer", run_on_startup=False)
+@app.timer_trigger(schedule="0 30 4,30 6,30 7,30 9 * * 1-5", arg_name="timer", run_on_startup=False)
 def daily_stock_analysis(timer: func.TimerRequest) -> None:
-    """Runs Mon-Fri at 09:00 IST (03:30 UTC) — before Indian market open."""
+    """Runs Mon-Fri at 10:00, 12:00, 13:00, 15:00 IST."""
     if timer.past_due:
         logger.warning("Timer trigger is past due")
     logger.info("=== Daily Stock Analysis Started ===")

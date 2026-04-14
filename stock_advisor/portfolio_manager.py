@@ -60,10 +60,18 @@ class PortfolioManager:
         self._store.upsert(rec.to_dict())
 
     def get_latest_recommendation(self) -> DailyRecommendation | None:
+        # Try today first, then fall back to most recent
         today = date.today().isoformat()
         doc = self._store.read(f"rec-{today}", "recommendation")
         if doc:
             return DailyRecommendation.from_dict(doc)
+
+        # Fallback: query for the most recent recommendation
+        docs = self._store.query(
+            "SELECT TOP 1 * FROM c WHERE c.type = 'recommendation' ORDER BY c.date DESC",
+        )
+        if docs:
+            return DailyRecommendation.from_dict(docs[0])
         return None
 
     def get_recommendation_history(self, limit: int = 7) -> list[dict]:
