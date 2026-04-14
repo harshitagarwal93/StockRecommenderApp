@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analyzer — Deep Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root { --accent: #6f42c1; --buy: #28a745; --sell: #dc3545; --hold: #ffc107; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0d1117; }
+        .navbar { background: linear-gradient(135deg, #161b22 0%, #1c2333 100%) !important; border-bottom: 1px solid #30363d; }
+        .pnl-positive { color: #28a745 !important; }
+        .pnl-negative { color: #dc3545 !important; }
+
+        .search-container { position: relative; max-width: 600px; margin: 0 auto; }
+        .search-input { font-size: 1.2rem; padding: 14px 20px 14px 48px; border-radius: 16px; background: #161b22; border: 2px solid #30363d; color: #e6edf3; }
+        .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(111,66,193,.2); }
+        .search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #8b949e; font-size: 1.2rem; z-index: 2; }
+
+        .search-results { position: absolute; top: 100%; left: 0; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 12px; margin-top: 4px; max-height: 400px; overflow-y: auto; z-index: 100; display: none; }
+        .search-results.show { display: block; }
+        .search-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #21262d; transition: background .1s; }
+        .search-item:hover, .search-item.active { background: #21262d; }
+        .search-item:last-child { border-bottom: none; }
+        .search-item .stock-name { font-weight: 600; color: #e6edf3; }
+        .search-item .stock-symbol { font-size: .8rem; color: #8b949e; }
+        .search-item .stock-price { font-weight: 600; }
+
+        .analysis-card { background: #161b22; border: 1px solid #30363d; border-radius: 16px; }
+        .score-ring { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 700; }
+        .score-high { background: rgba(40,167,69,.15); color: var(--buy); border: 2px solid var(--buy); }
+        .score-mid { background: rgba(255,193,7,.15); color: var(--hold); border: 2px solid var(--hold); }
+        .score-low { background: rgba(220,53,69,.15); color: var(--sell); border: 2px solid var(--sell); }
+
+        .verdict-badge { font-size: 1.1rem; font-weight: 700; padding: 8px 24px; border-radius: 24px; }
+        .verdict-BUY { background: rgba(40,167,69,.15); color: var(--buy); border: 2px solid var(--buy); }
+        .verdict-SELL { background: rgba(220,53,69,.15); color: var(--sell); border: 2px solid var(--sell); }
+        .verdict-HOLD { background: rgba(255,193,7,.15); color: var(--hold); border: 2px solid var(--hold); }
+
+        .section-box { background: #21262d; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; }
+        .section-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: #8b949e; margin-bottom: 6px; }
+        .risk-pill { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 6px 12px; font-size: .85rem; }
+        .citation-pill { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 6px 12px; font-size: .8rem; color: #c9d1d9; }
+        .link-btn { font-size: .8rem; padding: 6px 14px; border-radius: 16px; text-decoration: none; }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="index.html">
+                <i class="bi bi-graph-up-arrow text-primary fs-4"></i>
+                <span class="fw-bold">Stock Advisor</span>
+                <span class="badge bg-primary bg-opacity-25 text-primary ms-2" style="font-size:.7rem">AI</span>
+            </a>
+            <a href="index.html" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Dashboard
+            </a>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- Search -->
+        <div class="text-center mb-4">
+            <h4 class="mb-1"><i class="bi bi-search me-2"></i>Analyze Any Stock</h4>
+            <p class="text-secondary mb-4">Search for an NSE stock to get AI-powered fundamental & technical analysis</p>
+        </div>
+
+        <div class="search-container mb-5">
+            <i class="bi bi-search search-icon" id="searchIconEl"></i>
+            <input type="text" id="searchInput" class="form-control search-input" placeholder="Type stock name or symbol..."
+                   autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKey(event)">
+            <div id="searchResults" class="search-results"></div>
+        </div>
+
+        <!-- Analysis Loading -->
+        <div id="analysisLoader" class="text-center py-5 d-none">
+            <div class="spinner-border text-primary mb-3" role="status"></div>
+            <p class="text-secondary pulse">Running deep analysis on <strong id="analyzingStock"></strong>...</p>
+            <small class="text-secondary">This may take 15-30 seconds</small>
+        </div>
+
+        <!-- Analysis Result -->
+        <div id="analysisResult" class="d-none">
+            <!-- Header -->
+            <div class="analysis-card p-4 mb-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                    <div>
+                        <h3 class="mb-0" id="resultName"></h3>
+                        <span class="text-secondary" id="resultTicker"></span>
+                        <span class="text-secondary ms-2" id="resultSector"></span>
+                    </div>
+                    <div class="text-end">
+                        <div class="fs-4 fw-bold" id="resultPrice"></div>
+                    </div>
+                </div>
+
+                <!-- Verdict -->
+                <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+                    <span class="verdict-badge" id="resultVerdict"></span>
+                    <span class="badge bg-secondary" id="resultConfidence"></span>
+                    <span class="text-secondary" id="resultHolding"></span>
+                </div>
+
+                <!-- Scores -->
+                <div class="row g-3 mb-3">
+                    <div class="col-4 text-center">
+                        <div class="section-label">Fundamental</div>
+                        <div class="score-ring mx-auto" id="fundScore"></div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="section-label">Technical</div>
+                        <div class="score-ring mx-auto" id="techScore"></div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="section-label">Risk:Reward</div>
+                        <div class="fw-bold fs-5 mt-2" id="resultRR"></div>
+                    </div>
+                </div>
+
+                <!-- Target / SL / Holding -->
+                <div class="row g-2">
+                    <div class="col-4">
+                        <div class="section-box text-center">
+                            <div class="section-label">Target Price</div>
+                            <div class="fw-bold pnl-positive" id="resultTarget"></div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="section-box text-center">
+                            <div class="section-label">Stop Loss</div>
+                            <div class="fw-bold pnl-negative" id="resultSL"></div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="section-box text-center">
+                            <div class="section-label">Holding Period</div>
+                            <div class="fw-bold" id="resultPeriod"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Analysis -->
+            <div class="analysis-card p-4 mb-4">
+                <h5 class="mb-3"><i class="bi bi-clipboard-data me-2 text-primary"></i>Detailed Analysis</h5>
+
+                <div class="section-box">
+                    <div class="section-label"><i class="bi bi-building me-1"></i>Fundamental Analysis</div>
+                    <p class="mb-0" id="resultFundAnalysis"></p>
+                </div>
+
+                <div class="section-box">
+                    <div class="section-label"><i class="bi bi-graph-up me-1"></i>Technical Analysis</div>
+                    <p class="mb-0" id="resultTechAnalysis"></p>
+                </div>
+
+                <div class="section-box">
+                    <div class="section-label"><i class="bi bi-tag me-1"></i>Valuation Assessment</div>
+                    <p class="mb-0" id="resultValuation"></p>
+                </div>
+
+                <div class="section-box">
+                    <div class="section-label"><i class="bi bi-check2-circle me-1"></i>Verdict</div>
+                    <p class="mb-0 fw-bold" id="resultSummary"></p>
+                </div>
+            </div>
+
+            <!-- Risks & Citations -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="analysis-card p-4 h-100">
+                        <h6><i class="bi bi-exclamation-triangle text-warning me-2"></i>Key Risks</h6>
+                        <div id="resultRisks"></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="analysis-card p-4 h-100">
+                        <h6><i class="bi bi-bookmark text-info me-2"></i>Citations & Evidence</h6>
+                        <div id="resultCitations"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Links -->
+            <div class="d-flex flex-wrap gap-2 mb-4" id="resultLinks"></div>
+        </div>
+    </div>
+
+    <footer class="text-center py-4 border-top border-secondary border-opacity-25">
+        <small class="text-secondary">
+            <i class="bi bi-exclamation-circle me-1"></i>
+            AI-generated analysis for informational purposes only. Not financial advice.
+        </small>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? '' : 'https://stock-advisor-func.azurewebsites.net';
+        const fmt = (n) => new Intl.NumberFormat('en-IN', {maximumFractionDigits: 0}).format(n);
+        const fmtDec = (n) => new Intl.NumberFormat('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(n);
+
+        let _searchTimeout = null;
+        let _searchActive = -1;
+        let _searchItems = [];
+
+        function onSearchInput() {
+            const q = document.getElementById('searchInput').value.trim();
+            if (q.length < 2) {
+                document.getElementById('searchResults').classList.remove('show');
+                return;
+            }
+            clearTimeout(_searchTimeout);
+            _searchTimeout = setTimeout(() => doSearch(q), 250);
+        }
+
+        async function doSearch(q) {
+            const container = document.getElementById('searchResults');
+            try {
+                // Run search + live quote in parallel for better UX
+                const searchRes = await fetch(`${API_BASE}/api/stock/search?q=${encodeURIComponent(q)}`);
+                if (!searchRes.ok) return;
+                const results = await searchRes.json();
+
+                if (results.length === 0) {
+                    container.innerHTML = '<div class="search-item text-secondary">No NSE stocks found</div>';
+                    container.classList.add('show');
+                    return;
+                }
+
+                _searchItems = results;
+                _searchActive = -1;
+
+                // Render initial results
+                container.innerHTML = results.map((r, i) => `
+                    <div class="search-item" data-idx="${i}" onclick="selectStock(${i})" onmouseenter="_searchActive=${i}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="stock-name">${r.name}</span>
+                                <span class="stock-symbol ms-2">${r.symbol}</span>
+                            </div>
+                            <div class="text-end" id="quote-${i}">
+                                <small class="text-secondary">Loading...</small>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                container.classList.add('show');
+
+                // Fetch quotes for visible results (first 5)
+                results.slice(0, 5).forEach(async (r, i) => {
+                    try {
+                        const qRes = await fetch(`${API_BASE}/api/stock/quote?symbol=${encodeURIComponent(r.symbol)}`);
+                        if (qRes.ok) {
+                            const qData = await qRes.json();
+                            const el = document.getElementById(`quote-${i}`);
+                            if (el) {
+                                const cls = qData.change_pct >= 0 ? 'pnl-positive' : 'pnl-negative';
+                                el.innerHTML = `<span class="stock-price">₹${fmtDec(qData.price)}</span>
+                                    <small class="${cls} ms-1">${qData.change_pct >= 0 ? '+' : ''}${qData.change_pct.toFixed(1)}%</small>`;
+                            }
+                        }
+                    } catch (e) { /* ignore quote failures */ }
+                });
+
+            } catch (e) {
+                console.error('Search failed:', e);
+            }
+        }
+
+        function onSearchKey(e) {
+            const container = document.getElementById('searchResults');
+            const items = container.querySelectorAll('.search-item[data-idx]');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                _searchActive = Math.min(_searchActive + 1, items.length - 1);
+                items.forEach((el, i) => el.classList.toggle('active', i === _searchActive));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                _searchActive = Math.max(_searchActive - 1, 0);
+                items.forEach((el, i) => el.classList.toggle('active', i === _searchActive));
+            } else if (e.key === 'Enter' && _searchActive >= 0) {
+                e.preventDefault();
+                selectStock(_searchActive);
+            } else if (e.key === 'Escape') {
+                container.classList.remove('show');
+            }
+        }
+
+        async function selectStock(idx) {
+            const stock = _searchItems[idx];
+            if (!stock) return;
+
+            document.getElementById('searchResults').classList.remove('show');
+            document.getElementById('searchInput').value = `${stock.name} (${stock.symbol})`;
+            document.getElementById('analysisResult').classList.add('d-none');
+
+            // Show loader
+            const loader = document.getElementById('analysisLoader');
+            document.getElementById('analyzingStock').textContent = stock.name;
+            loader.classList.remove('d-none');
+
+            try {
+                const res = await fetch(`${API_BASE}/api/stock/analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symbol: stock.symbol }),
+                });
+                const data = await res.json();
+                if (data.error) {
+                    alert('Analysis failed: ' + data.error);
+                    return;
+                }
+                renderAnalysis(data);
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                loader.classList.add('d-none');
+            }
+        }
+
+        function renderAnalysis(d) {
+            const el = document.getElementById('analysisResult');
+            el.classList.remove('d-none');
+
+            document.getElementById('resultName').textContent = d.name || d.ticker;
+            document.getElementById('resultTicker').textContent = d.ticker;
+            document.getElementById('resultSector').textContent = `| ${d.sector}`;
+            document.getElementById('resultPrice').textContent = `₹${fmtDec(d.current_price)}`;
+
+            // Verdict
+            const verdict = d.recommendation || 'HOLD';
+            const vEl = document.getElementById('resultVerdict');
+            vEl.textContent = verdict;
+            vEl.className = `verdict-badge verdict-${verdict}`;
+
+            document.getElementById('resultConfidence').textContent = `${d.confidence || 'N/A'} confidence`;
+            document.getElementById('resultHolding').textContent = d.expected_holding_period || '';
+
+            // Scores
+            setScore('fundScore', d.fundamental_score);
+            setScore('techScore', d.technical_score);
+            document.getElementById('resultRR').textContent = d.risk_reward_ratio || 'N/A';
+
+            // Targets
+            document.getElementById('resultTarget').textContent = d.target_price ? `₹${fmtDec(d.target_price)}` : 'N/A';
+            document.getElementById('resultSL').textContent = d.stop_loss ? `₹${fmtDec(d.stop_loss)}` : 'N/A';
+            document.getElementById('resultPeriod').textContent = d.expected_holding_period || 'N/A';
+
+            // Detailed text
+            document.getElementById('resultFundAnalysis').textContent = d.fundamental_analysis || 'N/A';
+            document.getElementById('resultTechAnalysis').textContent = d.technical_analysis || 'N/A';
+            document.getElementById('resultValuation').textContent = d.valuation_assessment || 'N/A';
+            document.getElementById('resultSummary').textContent = d.verdict_summary || 'N/A';
+
+            // Risks
+            const risks = d.key_risks || [];
+            document.getElementById('resultRisks').innerHTML = risks.map(r =>
+                `<div class="risk-pill mb-2"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>${r}</div>`
+            ).join('') || '<span class="text-secondary">No specific risks identified</span>';
+
+            // Citations
+            const citations = d.citations || [];
+            document.getElementById('resultCitations').innerHTML = citations.map(c =>
+                `<div class="citation-pill mb-2"><i class="bi bi-quote me-1"></i>${c}</div>`
+            ).join('') || '<span class="text-secondary">No citations</span>';
+
+            // Links
+            document.getElementById('resultLinks').innerHTML = `
+                ${d.technicals_url ? `<a href="${d.technicals_url}" target="_blank" class="link-btn btn btn-sm btn-outline-info"><i class="bi bi-graph-up me-1"></i>TradingView</a>` : ''}
+                ${d.fundamentals_url ? `<a href="${d.fundamentals_url}" target="_blank" class="link-btn btn btn-sm btn-outline-warning"><i class="bi bi-bar-chart-line me-1"></i>Screener.in</a>` : ''}
+                ${d.trendlyne_url ? `<a href="${d.trendlyne_url}" target="_blank" class="link-btn btn btn-sm btn-outline-success"><i class="bi bi-tsunami me-1"></i>Trendlyne</a>` : ''}
+                ${d.google_finance_url ? `<a href="${d.google_finance_url}" target="_blank" class="link-btn btn btn-sm btn-outline-secondary"><i class="bi bi-google me-1"></i>Google Finance</a>` : ''}
+            `;
+
+            // Scroll to result
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function setScore(id, score) {
+            const el = document.getElementById(id);
+            const s = score || 0;
+            const cls = s >= 7 ? 'score-high' : s >= 4 ? 'score-mid' : 'score-low';
+            el.className = `score-ring mx-auto ${cls}`;
+            el.textContent = `${s}/10`;
+        }
+
+        // Close search dropdown on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-container')) {
+                document.getElementById('searchResults').classList.remove('show');
+            }
+        });
+
+        // Focus search on load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('searchInput').focus();
+        });
+    </script>
+</body>
+</html>

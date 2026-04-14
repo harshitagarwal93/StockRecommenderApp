@@ -98,6 +98,123 @@ def get_settings(req: func.HttpRequest) -> func.HttpResponse:
 
 
 # ---------------------------------------------------------------------------
+# Stock Search & Single-Stock Analysis
+# ---------------------------------------------------------------------------
+
+@app.route(route="stock/search", methods=["GET"])
+def stock_search(req: func.HttpRequest) -> func.HttpResponse:
+    """Typeahead search for NSE stocks. Uses Yahoo Finance search API."""
+    query = req.params.get("q", "").strip()
+    if len(query) < 2:
+        return func.HttpResponse(json.dumps([]), mimetype="application/json")
+
+    try:
+        # Yahoo Finance autocomplete API (public, no auth needed)
+        resp = requests.get(
+            "https://query2.finance.yahoo.com/v1/finance/search",
+            params={"q": query, "quotesCount": 10, "newsCount": 0, "enableFuzzyQuery": True, "quotesQueryId": "tss_match_phrase_query"},
+            headers={"User-Agent": "StockAdvisor/1.0"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        results = []
+        for q in data.get("quotes", []):
+            symbol = q.get("symbol", "")
+            exchange = q.get("exchange", "")
+            # Only NSE/BSE Indian stocks
+            if exchange not in ("NSMS", "NSI", "BSE", "BOM") and not symbol.endswith((".NS", ".BO")):
+                continue
+            # Normalise to .NS
+            if not symbol.endswith(".NS"):
+                if symbol.endswith(".BO"):
+                    continue  # Skip BSE duplicates
+                symbol = symbol + ".NS"
+
+            results.append({
+                "symbol": symbol,
+                "name": q.get("shortname") or q.get("longname") or symbol.replace(".NS", ""),
+                "exchange": "NSE",
+                "type": q.get("quoteType", "EQUITY"),
+            })
+
+        return func.HttpResponse(json.dumps(results), mimetype="application/json")
+    except Exception as e:
+        logger.exception("Stock search failed")
+        return func.HttpResponse(json.dumps([]), mimetype="application/json")
+
+
+@app.route(route="stock/quote", methods=["GET"])
+def stock_quote(req: func.HttpRequest) -> func.HttpResponse:
+    """Get current price and basic info for a stock."""
+    symbol = req.params.get("symbol", "").strip()
+    if not symbol:
+        return func.HttpResponse(json.dumps({"error": "symbol required"}), status_code=400, mimetype="application/json")
+
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        info = ticker.info
+        price = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("previousClose") or 0
+        prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose") or price
+        change_pct = ((price - prev_close) / prev_close * 100) if prev_close else 0
+
+        return func.HttpResponse(json.dumps({
+            "symbol": symbol,
+            "name": info.get("shortName") or symbol.replace(".NS", ""),
+            "price": round(price, 2),
+            "change_pct": round(change_pct, 2),
+            "prev_close": round(prev_close, 2),
+            "sector": info.get("sector") or "Unknown",
+            "market_cap": info.get("marketCap") or 0,
+        }), mimetype="application/json")
+    except Exception as e:
+        logger.exception("Quote fetch failed for %s", symbol)
+        return func.HttpResponse(json.dumps({"error": str(e)}), status_code=500, mimetype="application/json")
+
+
+@app.route(route="stock/analyze", methods=["POST"])
+def analyze_stock(req: func.HttpRequest) -> func.HttpResponse:
+    """Deep analysis of a single stock."""
+    try:
+        body = req.get_json()
+        symbol = body.get("symbol", "").strip()
+        if not symbol:
+            return func.HttpResponse(json.dumps({"error": "symbol required"}), status_code=400, mimetype="application/json")
+
+        if not symbol.endswith(".NS"):
+            symbol += ".NS"
+
+        from stock_advisor.data_fetcher import fetch_batch_prices, fetch_fundamental_data
+        from stock_advisor.technical_analysis import compute_indicators
+        from stock_advisor.single_stock import analyze_single_stock
+
+        # Fetch data
+        prices = fetch_batch_prices([symbol], period="1y")
+        if symbol not in prices:
+            return func.HttpResponse(json.dumps({"error": f"No price data for {symbol}"}), status_code=404, mimetype="application/json")
+
+        technicals = compute_indicators(symbol, prices[symbol])
+        fundamentals = fetch_fundamental_data(symbol)
+
+        # Check if currently held
+        portfolio = _pm().get_portfolio()
+        held = next((h for h in portfolio.holdings if h["ticker"] == symbol), None)
+        holding_info = "Not currently held"
+        if held:
+            pnl = (technicals.current_price - held["avg_price"]) * held["quantity"]
+            holding_info = f"Holding {held['quantity']} shares at avg Rs.{held['avg_price']:,.2f} (P&L: Rs.{pnl:,.0f})"
+
+        result = analyze_single_stock(_config, symbol, technicals, fundamentals, holding_info)
+        return func.HttpResponse(json.dumps(result, default=str), mimetype="application/json")
+
+    except Exception as e:
+        logger.exception("Single stock analysis failed")
+        return func.HttpResponse(json.dumps({"error": str(e)}), status_code=500, mimetype="application/json")
+
+
+# ---------------------------------------------------------------------------
 # Holdings exclusion (smallcase management)
 # ---------------------------------------------------------------------------
 
