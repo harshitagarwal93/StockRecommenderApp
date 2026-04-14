@@ -63,6 +63,10 @@
                 <span class="badge bg-primary bg-opacity-25 text-primary ms-2" style="font-size:.7rem">AI</span>
             </a>
             <div class="d-flex align-items-center gap-2">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="showExcluded" onchange="onGlobalToggle()">
+                    <label class="form-check-label text-secondary" for="showExcluded" style="font-size:.75rem">Smallcase</label>
+                </div>
                 <a id="kiteStatus" href="#" class="badge bg-secondary text-decoration-none" style="font-size:.7rem;cursor:pointer"
                    onclick="connectKite(event)">
                     <i class="bi bi-plug me-1"></i>Connect Kite
@@ -95,7 +99,15 @@
                 </div>
             </div>
         </div>
-        <!-- Loading -->
+        <!-- Initial loading indicator -->
+        <div id="initialLoader" class="d-flex align-items-center justify-content-center py-5">
+            <div class="text-center">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <p class="text-secondary">Loading latest recommendation...</p>
+            </div>
+        </div>
+
+        <!-- Loading for analysis -->
         <div id="loadingSpinner" class="loading-spinner align-items-center justify-content-center py-5">
             <div class="text-center">
                 <div class="spinner-border text-primary mb-3" role="status"></div>
@@ -104,7 +116,7 @@
         </div>
 
         <!-- Content wrapper -->
-        <div id="mainContent">
+        <div id="mainContent" style="display:none">
             <!-- Date & Status Bar -->
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
                 <div>
@@ -182,10 +194,6 @@
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                     <div class="section-title mb-0"><i class="bi bi-wallet2 me-2"></i>Current Holdings</div>
                     <div class="d-flex align-items-center gap-2">
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" id="showExcluded" onchange="filterHoldings()">
-                            <label class="form-check-label text-secondary" for="showExcluded" style="font-size:.8rem">Show smallcase</label>
-                        </div>
                         <input type="text" id="holdingsSearch" class="form-control form-control-sm bg-dark text-light border-secondary"
                                placeholder="Search..." oninput="filterHoldings()"
                                style="max-width:180px;font-size:.85rem">
@@ -259,6 +267,8 @@
         const fmt = (n) => new Intl.NumberFormat('en-IN', {maximumFractionDigits: 0}).format(n);
         const fmtDec = (n) => new Intl.NumberFormat('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(n);
 
+        let _lastRec = null;
+
         async function loadData() {
             try {
                 const [recRes, settingsRes] = await Promise.all([
@@ -294,33 +304,52 @@
                 }
 
                 if (recRes.ok) {
-                    const rec = await recRes.json();
-                    renderRecommendation(rec);
+                    _lastRec = await recRes.json();
+                    renderRecommendation(_lastRec);
                 }
             } catch (e) {
                 console.error('Failed to load data:', e);
+            } finally {
+                document.getElementById('initialLoader').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
             }
         }
 
         function renderRecommendation(rec) {
+            _lastRec = rec;
             document.getElementById('recDate').textContent = `Recommendation — ${rec.date}`;
             document.getElementById('recTimestamp').textContent = `Generated: ${new Date(rec.created_at).toLocaleString('en-IN')}`;
-            document.getElementById('portfolioValue').textContent = `₹${fmt(rec.portfolio_value)}`;
 
+            const showExcluded = document.getElementById('showExcluded').checked;
+            const allHoldings = rec.kite_holdings || [];
+            const visibleHoldings = showExcluded ? allHoldings : allHoldings.filter(h => !h.excluded);
+
+            // Compute stats from visible holdings only
+            const holdingsValue = visibleHoldings.reduce((s, h) => s + h.quantity * (h.current_price || h.avg_price), 0);
+            const investedValue = visibleHoldings.reduce((s, h) => s + h.quantity * h.avg_price, 0);
+            const totalValue = (rec.portfolio_value - rec.portfolio_value) + holdingsValue + (rec.portfolio_value - (allHoldings.reduce((s, h) => s + h.quantity * (h.current_price || h.avg_price), 0)));
+            const pValue = showExcluded ? rec.portfolio_value : holdingsValue;
+            const pRetPct = investedValue > 0 ? ((holdingsValue - investedValue) / investedValue * 100) : 0;
+
+            document.getElementById('portfolioValue').textContent = `₹${fmt(pValue)}`;
             const retEl = document.getElementById('portfolioReturns');
-            retEl.textContent = `${rec.portfolio_returns_pct >= 0 ? '+' : ''}${rec.portfolio_returns_pct.toFixed(1)}%`;
-            retEl.className = `stat-value ${rec.portfolio_returns_pct >= 0 ? 'pnl-positive' : 'pnl-negative'}`;
+            retEl.textContent = `${pRetPct >= 0 ? '+' : ''}${pRetPct.toFixed(1)}%`;
+            retEl.className = `stat-value ${pRetPct >= 0 ? 'pnl-positive' : 'pnl-negative'}`;
 
-            const holdings = rec.kite_holdings || [];
-            document.getElementById('holdingsCount').textContent = holdings.length;
+            document.getElementById('holdingsCount').textContent = visibleHoldings.length;
             document.getElementById('actionsCount').textContent = rec.recommendations.length || '0';
 
             document.getElementById('marketOutlook').innerHTML = `<span>${rec.market_outlook || 'N/A'}</span>`;
             document.getElementById('analysisSummary').innerHTML = `<span>${rec.analysis_summary || 'N/A'}</span>`;
             document.getElementById('riskAssessment').innerHTML = `<span>${rec.risk_assessment || 'N/A'}</span>`;
 
-            renderRecommendations(rec.recommendations, holdings);
-            renderHoldings(holdings);
+            renderRecommendations(rec.recommendations, allHoldings);
+            renderHoldings(allHoldings);
+        }
+
+        function onGlobalToggle() {
+            if (_lastRec) renderRecommendation(_lastRec);
+            filterHoldings();
         }
 
         function _calcTax(buyDate, gain) {
