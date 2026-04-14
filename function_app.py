@@ -94,6 +94,44 @@ def get_settings(req: func.HttpRequest) -> func.HttpResponse:
 
 
 # ---------------------------------------------------------------------------
+# Holdings exclusion (smallcase management)
+# ---------------------------------------------------------------------------
+
+@app.route(route="holdings/exclude", methods=["POST"])
+def toggle_holding_exclusion(req: func.HttpRequest) -> func.HttpResponse:
+    """Toggle a ticker in/out of the exclusion list. Body: {"ticker":"X.NS","exclude":true}"""
+    try:
+        body = req.get_json()
+        ticker = body.get("ticker", "")
+        exclude = body.get("exclude", True)
+
+        if not ticker:
+            return func.HttpResponse(json.dumps({"error": "ticker required"}), status_code=400, mimetype="application/json")
+
+        doc = _store.read("excluded-holdings", "config") or {"id": "excluded-holdings", "type": "config", "tickers": []}
+        tickers = set(doc.get("tickers", []))
+
+        if exclude:
+            tickers.add(ticker)
+        else:
+            tickers.discard(ticker)
+
+        doc["tickers"] = list(tickers)
+        _store.upsert(doc)
+
+        return func.HttpResponse(json.dumps({"ticker": ticker, "excluded": exclude, "total_excluded": len(tickers)}), mimetype="application/json")
+    except Exception as e:
+        return func.HttpResponse(json.dumps({"error": str(e)}), status_code=500, mimetype="application/json")
+
+
+@app.route(route="holdings/excluded", methods=["GET"])
+def get_excluded_holdings(req: func.HttpRequest) -> func.HttpResponse:
+    """Return the list of excluded tickers."""
+    doc = _store.read("excluded-holdings", "config") or {"tickers": []}
+    return func.HttpResponse(json.dumps({"tickers": doc.get("tickers", [])}), mimetype="application/json")
+
+
+# ---------------------------------------------------------------------------
 # Kite OAuth Flow
 # ---------------------------------------------------------------------------
 

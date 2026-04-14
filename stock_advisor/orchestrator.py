@@ -37,9 +37,16 @@ def run_daily_analysis(config: Config | None = None, max_buy_amount: float | Non
         len(universe), len(portfolio.holdings), portfolio.cash_balance, portfolio.source,
     )
 
+    # Filter out excluded (smallcase) holdings for analysis
+    active_holdings = [h for h in portfolio.holdings if not h.get("excluded", False)]
+    excluded_count = len(portfolio.holdings) - len(active_holdings)
+    if excluded_count > 0:
+        logger.info("Excluded %d smallcase holdings from analysis", excluded_count)
+
     # Step 1: Batch price download
     all_tickers = list(universe.keys())
-    for t in portfolio.holding_tickers():
+    for h in active_holdings:
+        t = h["ticker"]
         if t not in all_tickers:
             all_tickers.append(t)
 

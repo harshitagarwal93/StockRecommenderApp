@@ -55,13 +55,19 @@ def fetch_kite_holdings(config: Config) -> list[dict]:
     holdings = _fetch_holdings(headers)
     positions = _fetch_positions(headers)
 
-    # Combine and deduplicate — only NSE exchange (smallcase typically uses BSE)
+    # Load excluded tickers (user-managed smallcase exclusion list)
+    excluded: set[str] = set()
+    try:
+        from .cosmos_store import CosmosStore
+        store = CosmosStore(config)
+        doc = store.read("excluded-holdings", "config")
+        if doc:
+            excluded = set(doc.get("tickers", []))
+    except Exception:
+        logger.warning("Failed to load exclusion list", exc_info=True)
+
     combined: dict[str, dict] = {}
     for h in holdings:
-        exchange = h.get("exchange", "") or ""
-        if exchange.upper() != "NSE":
-            continue
-
         ticker = kite_to_yfinance(h.get("tradingsymbol", ""))
         if not ticker:
             continue
@@ -73,13 +79,15 @@ def fetch_kite_holdings(config: Config) -> list[dict]:
             "current_price": h.get("last_price", 0),
             "pnl": h.get("pnl", 0),
             "buy_date": h.get("opening_date", ""),
+            "exchange": h.get("exchange", "NSE"),
+            "excluded": ticker in excluded,
             "category": "LARGE_CAP",
         }
 
     # Add delivery positions not already in holdings
     for p in positions:
         if p.get("product", "") != "CNC":
-            continue  # Only delivery positions for long-term
+            continue
         ticker = kite_to_yfinance(p.get("tradingsymbol", ""))
         if ticker and ticker not in combined and p.get("quantity", 0) > 0:
             combined[ticker] = {
@@ -90,10 +98,12 @@ def fetch_kite_holdings(config: Config) -> list[dict]:
                 "current_price": p.get("last_price", 0),
                 "pnl": p.get("pnl", 0),
                 "buy_date": "",
+                "exchange": p.get("exchange", "NSE"),
+                "excluded": ticker in excluded,
                 "category": "LARGE_CAP",
             }
 
-    logger.info("Fetched %d holdings from Kite", len(combined))
+    logger.info("Fetched %d holdings from Kite (%d excluded)", len(combined), sum(1 for h in combined.values() if h.get("excluded")))
     return list(combined.values())
 
 

@@ -172,11 +172,17 @@
 
             <!-- Current Holdings -->
             <div class="mb-4">
-                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                     <div class="section-title mb-0"><i class="bi bi-wallet2 me-2"></i>Current Holdings</div>
-                    <input type="text" id="holdingsSearch" class="form-control form-control-sm bg-dark text-light border-secondary"
-                           placeholder="Search by name or symbol..." oninput="filterHoldings()"
-                           style="max-width:220px;font-size:.85rem">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="showExcluded" onchange="filterHoldings()">
+                            <label class="form-check-label text-secondary" for="showExcluded" style="font-size:.8rem">Show smallcase</label>
+                        </div>
+                        <input type="text" id="holdingsSearch" class="form-control form-control-sm bg-dark text-light border-secondary"
+                               placeholder="Search..." oninput="filterHoldings()"
+                               style="max-width:180px;font-size:.85rem">
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table holdings-table mb-0">
@@ -189,10 +195,11 @@
                                 <th class="text-end sortable" onclick="sortHoldings('invested')" style="cursor:pointer" title="Sort by invested">Invested <i class="bi bi-arrow-down-up" style="font-size:.65rem"></i></th>
                                 <th class="text-end sortable" onclick="sortHoldings('pnl')" style="cursor:pointer" title="Sort by P&L">P&L <i class="bi bi-arrow-down-up" style="font-size:.65rem"></i></th>
                                 <th class="text-end sortable" onclick="sortHoldings('pnlPct')" style="cursor:pointer" title="Sort by % return">% <i class="bi bi-arrow-down-up" style="font-size:.65rem"></i></th>
+                                <th class="text-center" style="width:40px" title="Toggle smallcase exclusion"><i class="bi bi-funnel" style="font-size:.7rem"></i></th>
                             </tr>
                         </thead>
                         <tbody id="holdingsBody">
-                            <tr><td colspan="7" class="text-center text-secondary py-4">No holdings data</td></tr>
+                            <tr><td colspan="8" class="text-center text-secondary py-4">No holdings data</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -487,8 +494,7 @@
             _holdingsData = holdings || [];
             _holdingsSort = { key: null, asc: false };
             _holdingsPage = 0;
-            _holdingsFiltered = [..._holdingsData];
-            _renderHoldingsPage();
+            filterHoldings();
         }
 
         function _renderHoldingsPage() {
@@ -520,7 +526,7 @@
         function _renderHoldingsRows(holdings) {
             const tbody = document.getElementById('holdingsBody');
             if (!holdings || holdings.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-4">No holdings</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-secondary py-4">No holdings</td></tr>';
                 return;
             }
 
@@ -530,7 +536,11 @@
                 const pnl = (cmp - h.avg_price) * h.quantity;
                 const pnlPct = h.avg_price > 0 ? ((cmp - h.avg_price) / h.avg_price * 100) : 0;
                 const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
-                return `<tr>
+                const excluded = h.excluded;
+                const rowOpacity = excluded ? 'opacity:.45' : '';
+                const icon = excluded ? 'bi-eye-slash text-secondary' : 'bi-eye text-success';
+                const title = excluded ? 'Excluded (smallcase) — click to include' : 'Included — click to mark as smallcase';
+                return `<tr style="${rowOpacity}">
                     <td>
                         <div class="fw-bold">${h.name || h.ticker.replace('.NS', '')}</div>
                         <small class="text-secondary">${h.ticker}</small>
@@ -541,6 +551,8 @@
                     <td class="text-end">₹${fmt(invested)}</td>
                     <td class="text-end ${pnlClass}">₹${fmt(pnl)}</td>
                     <td class="text-end ${pnlClass}">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%</td>
+                    <td class="text-center"><i class="bi ${icon}" style="cursor:pointer;font-size:.9rem" title="${title}"
+                        onclick="toggleExclude('${h.ticker}',${!excluded})"></i></td>
                 </tr>`;
             }).join('');
         }
@@ -626,17 +638,33 @@
 
         function filterHoldings() {
             const query = document.getElementById('holdingsSearch').value.toLowerCase();
-            if (!query) {
-                _holdingsFiltered = [..._holdingsData];
-            } else {
-                _holdingsFiltered = _holdingsData.filter(h => {
-                    const name = (h.name || '').toLowerCase();
-                    const ticker = (h.ticker || '').toLowerCase();
-                    return name.includes(query) || ticker.includes(query);
-                });
-            }
+            const showExcluded = document.getElementById('showExcluded').checked;
+
+            _holdingsFiltered = _holdingsData.filter(h => {
+                if (!showExcluded && h.excluded) return false;
+                if (!query) return true;
+                const name = (h.name || '').toLowerCase();
+                const ticker = (h.ticker || '').toLowerCase();
+                return name.includes(query) || ticker.includes(query);
+            });
             _holdingsPage = 0;
             _renderHoldingsPage();
+        }
+
+        async function toggleExclude(ticker, exclude) {
+            try {
+                await fetch(`${API_BASE}/api/holdings/exclude`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticker, exclude }),
+                });
+                // Update local data
+                const h = _holdingsData.find(x => x.ticker === ticker);
+                if (h) h.excluded = exclude;
+                filterHoldings();
+            } catch (e) {
+                console.error('Failed to toggle exclusion:', e);
+            }
         }
 
         function connectKite(e) {
