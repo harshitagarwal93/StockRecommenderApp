@@ -59,7 +59,13 @@ def api_history():
 @app.route("/api/analyze", methods=["POST"])
 def api_analyze():
     try:
-        rec = run_daily_analysis()
+        max_buy_amount = None
+        if request.is_json:
+            body = request.get_json(silent=True) or {}
+            max_buy_amount = body.get("max_buy_amount")
+            if max_buy_amount is not None:
+                max_buy_amount = float(max_buy_amount)
+        rec = run_daily_analysis(max_buy_amount=max_buy_amount)
         return jsonify(rec.to_dict())
     except Exception as e:
         logger.exception("Analysis failed")

@@ -65,17 +65,27 @@
                 <span id="kiteStatus" class="badge bg-secondary" style="font-size:.7rem">
                     <i class="bi bi-circle-fill me-1"></i>Offline
                 </span>
-                <button class="btn btn-sm btn-outline-primary" onclick="runAnalysis()" id="analyzeBtn">
-                    <i class="bi bi-lightning-charge-fill me-1"></i>
-                    <span class="d-none d-sm-inline">Analyze Now</span>
-                    <span class="d-inline d-sm-none">Run</span>
-                </button>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
     <div class="container py-4">
+        <!-- On-Demand Analysis Panel -->
+        <div class="hero-card p-3 p-md-4 mb-4">
+            <div class="d-flex flex-wrap align-items-end gap-3">
+                <div class="flex-grow-1" style="min-width:200px">
+                    <label class="stat-label d-block mb-2">Max Buy Amount per Stock (₹)</label>
+                    <input type="number" id="buyAmountInput" class="form-control bg-dark text-light border-secondary"
+                           placeholder="e.g. 10000" min="500" step="500" style="max-width:280px">
+                    <small class="text-secondary mt-1 d-block">Leave blank to use default (₹<span id="defaultBuyAmt">10,000</span>)</small>
+                </div>
+                <button class="btn btn-primary btn-lg px-4" onclick="runAnalysis()" id="analyzeBtn">
+                    <i class="bi bi-lightning-charge-fill me-1"></i>
+                    Get Recommendations
+                </button>
+            </div>
+        </div>
         <!-- Loading -->
         <div id="loadingSpinner" class="loading-spinner align-items-center justify-content-center py-5">
             <div class="text-center">
@@ -236,6 +246,8 @@
                 if (settingsRes.ok) {
                     const s = await settingsRes.json();
                     document.getElementById('cfgMaxBuy').textContent = `₹${fmt(s.max_buy_amount)}`;
+                    document.getElementById('defaultBuyAmt').textContent = fmt(s.max_buy_amount);
+                    document.getElementById('buyAmountInput').placeholder = `e.g. ${fmt(s.max_buy_amount)}`;
                     document.getElementById('cfgMaxBuysDay').textContent = s.max_buys_per_day;
                     document.getElementById('cfgMaxSellsDay').textContent = s.max_sells_per_day;
                     document.getElementById('cfgModel').textContent = s.llm_model;
@@ -416,14 +428,26 @@
             const btn = document.getElementById('analyzeBtn');
             const spinner = document.getElementById('loadingSpinner');
             const content = document.getElementById('mainContent');
+            const amountInput = document.getElementById('buyAmountInput');
+            const amount = amountInput.value ? parseFloat(amountInput.value) : null;
+
+            if (amount !== null && amount < 500) {
+                alert('Minimum buy amount is ₹500');
+                return;
+            }
 
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Analyzing...';
             spinner.classList.add('active');
             content.style.opacity = '0.3';
 
+            const body = amount ? JSON.stringify({ max_buy_amount: amount }) : '{}';
             try {
-                const res = await fetch('/api/analyze', { method: 'POST' });
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: body,
+                });
                 const data = await res.json();
                 if (res.ok) {
                     renderRecommendation(data);
@@ -434,7 +458,7 @@
                 alert('Network error: ' + e.message);
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-lightning-charge-fill me-1"></i><span class="d-none d-sm-inline">Analyze Now</span><span class="d-inline d-sm-none">Run</span>';
+                btn.innerHTML = '<i class="bi bi-lightning-charge-fill me-1"></i>Get Recommendations';
                 spinner.classList.remove('active');
                 content.style.opacity = '1';
             }

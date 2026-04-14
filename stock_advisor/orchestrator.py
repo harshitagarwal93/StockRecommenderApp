@@ -19,10 +19,13 @@ logger = logging.getLogger(__name__)
 TOP_CANDIDATES = 20
 
 
-def run_daily_analysis(config: Config | None = None) -> DailyRecommendation:
+def run_daily_analysis(config: Config | None = None, max_buy_amount: float | None = None) -> DailyRecommendation:
     """Execute the full daily analysis pipeline."""
     if config is None:
         config = Config()
+
+    if max_buy_amount is not None and max_buy_amount > 0:
+        config.max_buy_amount = max_buy_amount
 
     store = CosmosStore(config)
     pm = PortfolioManager(config, store)
