@@ -80,12 +80,19 @@
                     <label class="stat-label d-block mb-2">Total Investment Budget (₹)</label>
                     <input type="number" id="buyAmountInput" class="form-control bg-dark text-light border-secondary"
                            placeholder="e.g. 10000" min="500" step="500" style="max-width:280px">
-                    <small class="text-secondary mt-1 d-block">Total amount across all BUY recommendations. Default: ₹<span id="defaultBuyAmt">10,000</span></small>
+                    <small class="text-secondary mt-1 d-block">Total across all BUY recommendations. Default: ₹<span id="defaultBuyAmt">10,000</span></small>
                 </div>
-                <button class="btn btn-primary btn-lg px-4" onclick="runAnalysis()" id="analyzeBtn">
-                    <i class="bi bi-lightning-charge-fill me-1"></i>
-                    Get Recommendations
-                </button>
+                <div class="d-flex flex-column flex-sm-row gap-2">
+                    <button class="btn btn-primary px-3" onclick="runAnalysis('all')" id="analyzeBtnAll">
+                        <i class="bi bi-lightning-charge-fill me-1"></i>All
+                    </button>
+                    <button class="btn btn-outline-success px-3" onclick="runAnalysis('buy')" id="analyzeBtnBuy">
+                        <i class="bi bi-cart-plus me-1"></i>Buy Only
+                    </button>
+                    <button class="btn btn-outline-danger px-3" onclick="runAnalysis('sell')" id="analyzeBtnSell">
+                        <i class="bi bi-cart-dash me-1"></i>Sell Only
+                    </button>
+                </div>
             </div>
         </div>
         <!-- Loading -->
@@ -596,29 +603,37 @@
             }
         }
 
-        async function runAnalysis() {
-            const btn = document.getElementById('analyzeBtn');
+        async function runAnalysis(mode = 'all') {
+            const btns = ['analyzeBtnAll', 'analyzeBtnBuy', 'analyzeBtnSell'];
             const spinner = document.getElementById('loadingSpinner');
             const content = document.getElementById('mainContent');
             const amountInput = document.getElementById('buyAmountInput');
             const amount = amountInput.value ? parseFloat(amountInput.value) : null;
 
             if (amount !== null && amount < 500) {
-                alert('Minimum buy amount is ₹500');
+                alert('Minimum amount is ₹500');
                 return;
             }
 
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Analyzing...';
+            // Disable all buttons
+            btns.forEach(id => {
+                const b = document.getElementById(id);
+                if (b) b.disabled = true;
+            });
+            const activeBtn = document.getElementById(mode === 'buy' ? 'analyzeBtnBuy' : mode === 'sell' ? 'analyzeBtnSell' : 'analyzeBtnAll');
+            const origHtml = activeBtn.innerHTML;
+            activeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Analyzing...';
             spinner.classList.add('active');
             content.style.opacity = '0.3';
 
-            const body = amount ? JSON.stringify({ max_buy_amount: amount }) : '{}';
+            const payload = { mode };
+            if (amount) payload.max_buy_amount = amount;
+
             try {
                 const res = await fetch(`${API_BASE}/api/analyze`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: body,
+                    body: JSON.stringify(payload),
                 });
                 const data = await res.json();
                 if (res.ok) {
@@ -629,8 +644,11 @@
             } catch (e) {
                 alert('Network error: ' + e.message);
             } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-lightning-charge-fill me-1"></i>Get Recommendations';
+                btns.forEach(id => {
+                    const b = document.getElementById(id);
+                    if (b) b.disabled = false;
+                });
+                activeBtn.innerHTML = origHtml;
                 spinner.classList.remove('active');
                 content.style.opacity = '1';
             }

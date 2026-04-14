@@ -19,8 +19,11 @@ logger = logging.getLogger(__name__)
 TOP_CANDIDATES = 20
 
 
-def run_daily_analysis(config: Config | None = None, max_buy_amount: float | None = None) -> DailyRecommendation:
-    """Execute the full daily analysis pipeline."""
+def run_daily_analysis(config: Config | None = None, max_buy_amount: float | None = None, mode: str = "all") -> DailyRecommendation:
+    """Execute the full daily analysis pipeline.
+
+    mode: "all" (default), "buy" (buy-only), "sell" (sell-only)
+    """
     if config is None:
         config = Config()
 
@@ -108,7 +111,7 @@ def run_daily_analysis(config: Config | None = None, max_buy_amount: float | Non
     )
 
     # Step 6: LLM analysis
-    recommendation = llm_analyze(config, analysis_portfolio, top)
+    recommendation = llm_analyze(config, analysis_portfolio, top, mode=mode)
 
     # Store all holdings (including excluded) for UI display
     recommendation.kite_holdings = portfolio.holdings

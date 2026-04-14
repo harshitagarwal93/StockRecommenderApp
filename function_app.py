@@ -60,14 +60,18 @@ def get_portfolio(req: func.HttpRequest) -> func.HttpResponse:
 def trigger_analysis(req: func.HttpRequest) -> func.HttpResponse:
     try:
         max_buy_amount = None
+        mode = "all"
         try:
             body = req.get_json()
             max_buy_amount = body.get("max_buy_amount")
             if max_buy_amount is not None:
                 max_buy_amount = float(max_buy_amount)
+            mode = body.get("mode", "all")
+            if mode not in ("all", "buy", "sell"):
+                mode = "all"
         except ValueError:
             pass
-        rec = run_daily_analysis(config=_config, max_buy_amount=max_buy_amount)
+        rec = run_daily_analysis(config=_config, max_buy_amount=max_buy_amount, mode=mode)
         return func.HttpResponse(json.dumps(rec.to_dict(), default=str), mimetype="application/json")
     except Exception as e:
         return func.HttpResponse(json.dumps({"error": str(e)}), status_code=500, mimetype="application/json")
