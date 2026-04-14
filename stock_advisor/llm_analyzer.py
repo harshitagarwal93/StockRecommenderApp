@@ -200,7 +200,7 @@ def analyze(
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.3,
-            max_tokens=4096,
+            max_completion_tokens=4096,
         )
 
         content = response.choices[0].message.content.strip()
