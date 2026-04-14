@@ -74,6 +74,7 @@ def fetch_kite_holdings(config: Config) -> list[dict]:
             "avg_price": h.get("average_price", 0),
             "current_price": h.get("last_price", 0),
             "pnl": h.get("pnl", 0),
+            "buy_date": h.get("opening_date", ""),
             "category": "LARGE_CAP",
         }
 
@@ -90,6 +91,7 @@ def fetch_kite_holdings(config: Config) -> list[dict]:
                 "avg_price": p.get("average_price", 0),
                 "current_price": p.get("last_price", 0),
                 "pnl": p.get("pnl", 0),
+                "buy_date": "",
                 "category": "LARGE_CAP",
             }
 

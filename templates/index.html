@@ -310,11 +310,24 @@
             document.getElementById('analysisSummary').innerHTML = `<span>${rec.analysis_summary || 'N/A'}</span>`;
             document.getElementById('riskAssessment').innerHTML = `<span>${rec.risk_assessment || 'N/A'}</span>`;
 
-            renderRecommendations(rec.recommendations);
+            renderRecommendations(rec.recommendations, holdings);
             renderHoldings(holdings);
         }
 
-        function renderRecommendations(recs) {
+        function _calcTax(buyDate, gain) {
+            // Indian tax: LTCG (>12 months) = 12.5%, STCG (<=12 months) = 20%
+            if (!buyDate || gain <= 0) return { type: 'N/A', rate: 0, tax: 0 };
+            const buy = new Date(buyDate);
+            const now = new Date();
+            const months = (now.getFullYear() - buy.getFullYear()) * 12 + (now.getMonth() - buy.getMonth());
+            if (months > 12) {
+                return { type: 'LTCG', rate: 12.5, tax: gain * 0.125, holding: `${Math.floor(months/12)}y ${months%12}m` };
+            } else {
+                return { type: 'STCG', rate: 20, tax: gain * 0.20, holding: `${months}m` };
+            }
+        }
+
+        function renderRecommendations(recs, holdings) {
             const container = document.getElementById('recommendationsList');
             if (!recs || recs.length === 0) {
                 container.innerHTML = `
@@ -325,7 +338,66 @@
                 return;
             }
 
-            container.innerHTML = recs.map((r, i) => `
+            // Build lookup from holdings
+            const holdMap = {};
+            (holdings || []).forEach(h => { holdMap[h.ticker] = h; });
+
+            container.innerHTML = recs.map((r, i) => {
+                const h = holdMap[r.ticker];
+                let pnlBlock = '';
+
+                if (r.action === 'SELL' && h) {
+                    const gain = (r.current_price - h.avg_price) * r.quantity;
+                    const gainPct = h.avg_price > 0 ? ((r.current_price - h.avg_price) / h.avg_price * 100) : 0;
+                    const gainClass = gain >= 0 ? 'pnl-positive' : 'pnl-negative';
+                    const tax = _calcTax(h.buy_date, gain);
+                    const netProfit = gain - tax.tax;
+                    const netClass = netProfit >= 0 ? 'pnl-positive' : 'pnl-negative';
+
+                    pnlBlock = `
+                    <div class="row g-2 mb-3" style="background:#21262d;border-radius:8px;padding:8px 0">
+                        <div class="col-6 col-md-3">
+                            <div class="stat-label">Current P&L</div>
+                            <div class="fw-bold ${gainClass}">₹${fmt(gain)}
+                                <small>(${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(1)}%)</small>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-label">Holding</div>
+                            <div class="fw-bold">${tax.holding || 'N/A'}
+                                <small class="badge ${tax.type === 'LTCG' ? 'bg-success' : 'bg-warning text-dark'} ms-1" style="font-size:.65rem">${tax.type}</small>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-label">Tax @${tax.rate}%</div>
+                            <div class="fw-bold ${tax.tax > 0 ? 'pnl-negative' : ''}">-₹${fmt(tax.tax)}</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-label">Net Profit</div>
+                            <div class="fw-bold ${netClass}">₹${fmt(netProfit)}</div>
+                        </div>
+                    </div>`;
+                } else if (r.action === 'BUY' && h) {
+                    // Already holding — show current unrealised P&L
+                    const unrealised = (r.current_price - h.avg_price) * h.quantity;
+                    const unrealisedPct = h.avg_price > 0 ? ((r.current_price - h.avg_price) / h.avg_price * 100) : 0;
+                    const uClass = unrealised >= 0 ? 'pnl-positive' : 'pnl-negative';
+                    pnlBlock = `
+                    <div class="row g-2 mb-3" style="background:#21262d;border-radius:8px;padding:8px 0">
+                        <div class="col-6">
+                            <div class="stat-label">Existing Holding P&L</div>
+                            <div class="fw-bold ${uClass}">₹${fmt(unrealised)}
+                                <small>(${unrealisedPct >= 0 ? '+' : ''}${unrealisedPct.toFixed(1)}%)</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-label">Held Qty</div>
+                            <div class="fw-bold">${h.quantity} @ ₹${fmtDec(h.avg_price)}</div>
+                        </div>
+                    </div>`;
+                }
+
+                return `
                 <div class="rec-card mb-3 p-3 p-md-4">
                     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
                         <div class="d-flex align-items-center gap-3">
@@ -371,6 +443,8 @@
                         </div>
                     </div>
 
+                    ${pnlBlock}
+
                     <!-- Reasoning Toggle -->
                     <button class="btn btn-sm btn-outline-secondary mb-2" onclick="toggleReasoning(${i})">
                         <i class="bi bi-chat-text me-1"></i>Show Reasoning
@@ -405,7 +479,7 @@
                         </a>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         let _holdingsData = [];
