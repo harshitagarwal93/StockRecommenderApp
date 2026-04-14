@@ -72,9 +72,9 @@ def run_daily_analysis(config: Config | None = None, max_buy_amount: float | Non
         except Exception:
             logger.warning("Failed indicators for %s", ticker, exc_info=True)
 
-    # Step 3: Pre-screen top N + portfolio holdings
+    # Step 3: Pre-screen top N + active portfolio holdings
     analyses.sort(key=lambda a: a.composite_score, reverse=True)
-    held_tickers = set(portfolio.holding_tickers())
+    held_tickers = set(h["ticker"] for h in active_holdings)
 
     top = []
     count = 0
@@ -97,8 +97,21 @@ def run_daily_analysis(config: Config | None = None, max_buy_amount: float | Non
         if h["ticker"] in price_map:
             h["current_price"] = price_map[h["ticker"]]
 
+    # Build analysis portfolio with only active holdings
+    from .models import Portfolio as PortfolioModel
+    analysis_portfolio = PortfolioModel(
+        holdings=active_holdings,
+        cash_balance=portfolio.cash_balance,
+        initial_investment=portfolio.initial_investment,
+        last_updated=portfolio.last_updated,
+        source=portfolio.source,
+    )
+
     # Step 6: LLM analysis
-    recommendation = llm_analyze(config, portfolio, top)
+    recommendation = llm_analyze(config, analysis_portfolio, top)
+
+    # Store all holdings (including excluded) for UI display
+    recommendation.kite_holdings = portfolio.holdings
 
     # Step 7: Persist
     pm.save_recommendation(recommendation)
