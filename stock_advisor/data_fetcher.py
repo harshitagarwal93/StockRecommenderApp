@@ -43,6 +43,10 @@ def fetch_batch_prices(
             else:
                 df = raw[ticker]
 
+            # Flatten multi-level columns if present (yfinance v2+)
+            if isinstance(df.columns, pd.MultiIndex):
+                df = df.droplevel("Ticker", axis=1) if "Ticker" in df.columns.names else df[ticker]
+
             df = df.dropna()
             if df.shape[0] >= 50:
                 result[ticker] = df
