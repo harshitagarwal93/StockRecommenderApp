@@ -206,6 +206,7 @@
         let _searchTimeout = null;
         let _searchActive = -1;
         let _searchItems = [];
+        let _searchController = null;
 
         function onSearchInput() {
             const q = document.getElementById('searchInput').value.trim();
@@ -214,14 +215,15 @@
                 return;
             }
             clearTimeout(_searchTimeout);
-            _searchTimeout = setTimeout(() => doSearch(q), 250);
+            if (_searchController) _searchController.abort();
+            _searchTimeout = setTimeout(() => doSearch(q), 400);
         }
 
         async function doSearch(q) {
             const container = document.getElementById('searchResults');
+            _searchController = new AbortController();
             try {
-                // Run search + live quote in parallel for better UX
-                const searchRes = await fetch(`${API_BASE}/api/stock/search?q=${encodeURIComponent(q)}`);
+                const searchRes = await fetch(`${API_BASE}/api/stock/search?q=${encodeURIComponent(q)}`, { signal: _searchController.signal });
                 if (!searchRes.ok) return;
                 const results = await searchRes.json();
 
