@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 import requests
@@ -14,19 +15,41 @@ logger = logging.getLogger(__name__)
 KITE_BASE_URL = "https://api.kite.trade"
 
 
-def fetch_kite_holdings(config: Config) -> list[dict]:
-    """Fetch current holdings from Kite Connect API.
+def _get_access_token(config: Config) -> str:
+    """Get access token from config env var, or fall back to CosmosDB stored token."""
+    if config.kite_access_token:
+        return config.kite_access_token
 
-    Returns a list of dicts with keys: ticker, name, quantity, avg_price,
-    current_price, pnl, category.
-    """
-    if not config.kite_api_key or not config.kite_access_token:
-        logger.info("Kite credentials not configured — skipping holdings fetch")
+    # Try loading from CosmosDB
+    try:
+        from .cosmos_store import CosmosStore
+
+        store = CosmosStore(config)
+        token_doc = store.read("kite-token", "kite")
+        if token_doc:
+            token_date = token_doc.get("date", "")
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            if token_date == today:
+                logger.info("Loaded Kite access token from CosmosDB (today's session)")
+                return token_doc.get("access_token", "")
+            else:
+                logger.warning("Stored Kite token is from %s (expired)", token_date)
+    except Exception:
+        logger.warning("Failed to load Kite token from CosmosDB", exc_info=True)
+
+    return ""
+
+
+def fetch_kite_holdings(config: Config) -> list[dict]:
+    """Fetch current holdings from Kite Connect API."""
+    access_token = _get_access_token(config)
+    if not config.kite_api_key or not access_token:
+        logger.info("Kite credentials not available — skipping holdings fetch")
         return []
 
     headers = {
         "X-Kite-Version": "3",
-        "Authorization": f"token {config.kite_api_key}:{config.kite_access_token}",
+        "Authorization": f"token {config.kite_api_key}:{access_token}",
     }
 
     holdings = _fetch_holdings(headers)
@@ -101,12 +124,13 @@ def _fetch_positions(headers: dict) -> list[dict]:
 
 def get_kite_margin(config: Config) -> float:
     """Get available cash margin from Kite account."""
-    if not config.kite_api_key or not config.kite_access_token:
+    access_token = _get_access_token(config)
+    if not config.kite_api_key or not access_token:
         return 0.0
 
     headers = {
         "X-Kite-Version": "3",
-        "Authorization": f"token {config.kite_api_key}:{config.kite_access_token}",
+        "Authorization": f"token {config.kite_api_key}:{access_token}",
     }
 
     try:
