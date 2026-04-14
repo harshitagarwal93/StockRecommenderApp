@@ -107,7 +107,7 @@ def _build_client(config: Config) -> tuple[AzureOpenAI | OpenAI, str]:
         client = AzureOpenAI(
             azure_endpoint=config.azure_ai_endpoint,
             api_key=config.azure_ai_key,
-            api_version="2024-12-01-preview",
+            api_version="2025-03-01-preview",
         )
         return client, config.azure_ai_deployment
 
@@ -188,17 +188,15 @@ def analyze(
 
     content = ""
     try:
-        response = client.chat.completions.create(
+        response = client.responses.create(
             model=model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
+            instructions=SYSTEM_PROMPT,
+            input=user_prompt,
             temperature=0.3,
-            max_completion_tokens=4096,
+            max_output_tokens=4096,
         )
 
-        content = response.choices[0].message.content.strip()
+        content = response.output_text.strip()
         # Strip markdown fencing if present
         if content.startswith("```"):
             content = content.split("\n", 1)[1]
