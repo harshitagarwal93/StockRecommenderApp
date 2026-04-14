@@ -1,0 +1,8 @@
+{
+    "servers": {
+        "kite": {
+            "type": "sse",
+            "url": "https://mcp.kite.trade/mcp"
+        }
+    }
+}

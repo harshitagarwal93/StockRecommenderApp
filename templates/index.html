@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Advisor — AI Recommendations</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #6f42c1;
+            --buy: #28a745;
+            --sell: #dc3545;
+            --hold: #ffc107;
+        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0d1117; }
+        .navbar { background: linear-gradient(135deg, #161b22 0%, #1c2333 100%) !important; border-bottom: 1px solid #30363d; }
+        .hero-card { background: linear-gradient(135deg, #1a1f36 0%, #161b22 100%); border: 1px solid #30363d; border-radius: 16px; }
+        .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; transition: transform .15s; }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-value { font-size: 1.5rem; font-weight: 700; }
+        .stat-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: #8b949e; }
+        .rec-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; overflow: hidden; transition: all .2s; }
+        .rec-card:hover { border-color: var(--accent); }
+        .action-badge { font-size: .85rem; font-weight: 700; padding: 6px 16px; border-radius: 20px; }
+        .action-BUY { background: rgba(40,167,69,.15); color: var(--buy); border: 1px solid rgba(40,167,69,.3); }
+        .action-SELL { background: rgba(220,53,69,.15); color: var(--sell); border: 1px solid rgba(220,53,69,.3); }
+        .confidence-HIGH { color: var(--buy); }
+        .confidence-MEDIUM { color: var(--hold); }
+        .confidence-LOW { color: var(--sell); }
+        .citation-pill { background: #21262d; border: 1px solid #30363d; border-radius: 8px; padding: 6px 12px; font-size: .8rem; color: #c9d1d9; }
+        .link-btn { font-size: .8rem; padding: 4px 12px; border-radius: 16px; text-decoration: none; }
+        .holdings-table th { font-size: .75rem; text-transform: uppercase; color: #8b949e; border-bottom: 1px solid #30363d !important; }
+        .holdings-table td { border-bottom: 1px solid #21262d !important; vertical-align: middle; }
+        .pnl-positive { color: var(--buy); }
+        .pnl-negative { color: var(--sell); }
+        .loading-spinner { display: none; }
+        .loading-spinner.active { display: flex; }
+        .section-title { font-size: 1.1rem; font-weight: 600; color: #e6edf3; margin-bottom: 1rem; }
+        .section-title i { color: var(--accent); }
+        .outlook-box { background: #21262d; border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; padding: 16px 20px; }
+        .risk-box { background: #21262d; border-left: 4px solid var(--sell); border-radius: 0 8px 8px 0; padding: 16px 20px; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #8b949e; }
+        .empty-state i { font-size: 3rem; margin-bottom: 1rem; display: block; }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+        .reasoning-content { display: none; }
+        .reasoning-content.show { display: block; }
+        @media (max-width: 768px) {
+            .stat-value { font-size: 1.2rem; }
+            .hero-card { padding: 1rem !important; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+                <i class="bi bi-graph-up-arrow text-primary fs-4"></i>
+                <span class="fw-bold">Stock Advisor</span>
+                <span class="badge bg-primary bg-opacity-25 text-primary ms-2" style="font-size:.7rem">AI</span>
+            </a>
+            <div class="d-flex align-items-center gap-2">
+                <span id="kiteStatus" class="badge bg-secondary" style="font-size:.7rem">
+                    <i class="bi bi-circle-fill me-1"></i>Offline
+                </span>
+                <button class="btn btn-sm btn-outline-primary" onclick="runAnalysis()" id="analyzeBtn">
+                    <i class="bi bi-lightning-charge-fill me-1"></i>
+                    <span class="d-none d-sm-inline">Analyze Now</span>
+                    <span class="d-inline d-sm-none">Run</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container py-4">
+        <!-- Loading -->
+        <div id="loadingSpinner" class="loading-spinner align-items-center justify-content-center py-5">
+            <div class="text-center">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <p class="text-secondary pulse">Fetching market data & running AI analysis...</p>
+            </div>
+        </div>
+
+        <!-- Content wrapper -->
+        <div id="mainContent">
+            <!-- Date & Status Bar -->
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+                <div>
+                    <h5 class="mb-0" id="recDate">Daily Recommendation</h5>
+                    <small class="text-secondary" id="recTimestamp"></small>
+                </div>
+                <div id="modelBadge" class="badge bg-primary bg-opacity-25 text-primary" style="font-size:.75rem"></div>
+            </div>
+
+            <!-- Portfolio Summary Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-md-3">
+                    <div class="stat-card p-3 text-center">
+                        <div class="stat-label">Portfolio Value</div>
+                        <div class="stat-value" id="portfolioValue">—</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card p-3 text-center">
+                        <div class="stat-label">Returns</div>
+                        <div class="stat-value" id="portfolioReturns">—</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card p-3 text-center">
+                        <div class="stat-label">Holdings</div>
+                        <div class="stat-value" id="holdingsCount">—</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card p-3 text-center">
+                        <div class="stat-label">Actions Today</div>
+                        <div class="stat-value" id="actionsCount">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Market Outlook -->
+            <div class="mb-4">
+                <div class="section-title"><i class="bi bi-globe me-2"></i>Market Outlook</div>
+                <div class="outlook-box" id="marketOutlook">
+                    <span class="text-secondary">No analysis available yet. Click "Analyze Now" to start.</span>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="mb-4">
+                <div class="section-title"><i class="bi bi-lightning-charge me-2"></i>Recommendations</div>
+                <div id="recommendationsList">
+                    <div class="empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <p>No recommendations yet.<br>Run an analysis to get AI-powered suggestions.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Summary + Risk -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="section-title"><i class="bi bi-file-text me-2"></i>Analysis Summary</div>
+                    <div class="outlook-box" id="analysisSummary">
+                        <span class="text-secondary">—</span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="section-title"><i class="bi bi-exclamation-triangle me-2"></i>Risk Assessment</div>
+                    <div class="risk-box" id="riskAssessment">
+                        <span class="text-secondary">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Holdings -->
+            <div class="mb-4">
+                <div class="section-title"><i class="bi bi-wallet2 me-2"></i>Current Holdings</div>
+                <div class="table-responsive">
+                    <table class="table holdings-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Stock</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end d-none d-sm-table-cell">Avg Price</th>
+                                <th class="text-end">CMP</th>
+                                <th class="text-end">P&L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holdingsBody">
+                            <tr><td colspan="5" class="text-center text-secondary py-4">No holdings data</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="mb-4">
+                <div class="section-title"><i class="bi bi-gear me-2"></i>Configuration</div>
+                <div class="row g-3" id="settingsPanel">
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="stat-card p-3">
+                            <div class="stat-label">Max Buy Amount</div>
+                            <div class="fw-bold" id="cfgMaxBuy">—</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="stat-card p-3">
+                            <div class="stat-label">Max Buys/Day</div>
+                            <div class="fw-bold" id="cfgMaxBuysDay">—</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="stat-card p-3">
+                            <div class="stat-label">Max Sells/Day</div>
+                            <div class="fw-bold" id="cfgMaxSellsDay">—</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <div class="stat-card p-3">
+                            <div class="stat-label">LLM Model</div>
+                            <div class="fw-bold" id="cfgModel">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center py-4 border-top border-secondary border-opacity-25">
+        <small class="text-secondary">
+            <i class="bi bi-exclamation-circle me-1"></i>
+            AI-generated recommendations for informational purposes only. Not financial advice.
+            Always do your own research before making investment decisions.
+        </small>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const fmt = (n) => new Intl.NumberFormat('en-IN', {maximumFractionDigits: 0}).format(n);
+        const fmtDec = (n) => new Intl.NumberFormat('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(n);
+
+        async function loadData() {
+            try {
+                const [recRes, settingsRes] = await Promise.all([
+                    fetch('/api/recommendation'),
+                    fetch('/api/settings'),
+                ]);
+
+                if (settingsRes.ok) {
+                    const s = await settingsRes.json();
+                    document.getElementById('cfgMaxBuy').textContent = `₹${fmt(s.max_buy_amount)}`;
+                    document.getElementById('cfgMaxBuysDay').textContent = s.max_buys_per_day;
+                    document.getElementById('cfgMaxSellsDay').textContent = s.max_sells_per_day;
+                    document.getElementById('cfgModel').textContent = s.llm_model;
+                    document.getElementById('modelBadge').textContent = `Model: ${s.llm_model}`;
+
+                    const kiteEl = document.getElementById('kiteStatus');
+                    if (s.kite_connected) {
+                        kiteEl.className = 'badge bg-success bg-opacity-25 text-success';
+                        kiteEl.style.fontSize = '.7rem';
+                        kiteEl.innerHTML = '<i class="bi bi-circle-fill me-1"></i>Kite Connected';
+                    }
+                }
+
+                if (recRes.ok) {
+                    const rec = await recRes.json();
+                    renderRecommendation(rec);
+                }
+            } catch (e) {
+                console.error('Failed to load data:', e);
+            }
+        }
+
+        function renderRecommendation(rec) {
+            document.getElementById('recDate').textContent = `Recommendation — ${rec.date}`;
+            document.getElementById('recTimestamp').textContent = `Generated: ${new Date(rec.created_at).toLocaleString('en-IN')}`;
+            document.getElementById('portfolioValue').textContent = `₹${fmt(rec.portfolio_value)}`;
+
+            const retEl = document.getElementById('portfolioReturns');
+            retEl.textContent = `${rec.portfolio_returns_pct >= 0 ? '+' : ''}${rec.portfolio_returns_pct.toFixed(1)}%`;
+            retEl.className = `stat-value ${rec.portfolio_returns_pct >= 0 ? 'pnl-positive' : 'pnl-negative'}`;
+
+            const holdings = rec.kite_holdings || [];
+            document.getElementById('holdingsCount').textContent = holdings.length;
+            document.getElementById('actionsCount').textContent = rec.recommendations.length || '0';
+
+            document.getElementById('marketOutlook').innerHTML = `<span>${rec.market_outlook || 'N/A'}</span>`;
+            document.getElementById('analysisSummary').innerHTML = `<span>${rec.analysis_summary || 'N/A'}</span>`;
+            document.getElementById('riskAssessment').innerHTML = `<span>${rec.risk_assessment || 'N/A'}</span>`;
+
+            renderRecommendations(rec.recommendations);
+            renderHoldings(holdings);
+        }
+
+        function renderRecommendations(recs) {
+            const container = document.getElementById('recommendationsList');
+            if (!recs || recs.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-check-circle"></i>
+                        <p>No changes recommended today.<br>Hold current positions.</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = recs.map((r, i) => `
+                <div class="rec-card mb-3 p-3 p-md-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="action-badge action-${r.action}">${r.action}</span>
+                            <div>
+                                <div class="fw-bold">${r.name || r.ticker}</div>
+                                <small class="text-secondary">${r.ticker}</small>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold confidence-${r.confidence}">${r.confidence}</div>
+                            <small class="text-secondary">confidence</small>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-4">
+                            <div class="stat-label">Quantity</div>
+                            <div class="fw-bold">${r.quantity}</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-label">Price</div>
+                            <div class="fw-bold">₹${fmtDec(r.current_price)}</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-label">Total Cost</div>
+                            <div class="fw-bold">₹${fmt(r.quantity * r.current_price)}</div>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <div class="stat-label">Target</div>
+                            <div class="fw-bold pnl-positive">₹${fmtDec(r.target_price)}
+                                <small>(+${(((r.target_price - r.current_price) / r.current_price) * 100).toFixed(1)}%)</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-label">Stop Loss</div>
+                            <div class="fw-bold pnl-negative">₹${fmtDec(r.stop_loss)}
+                                <small>(${(((r.stop_loss - r.current_price) / r.current_price) * 100).toFixed(1)}%)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reasoning Toggle -->
+                    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="toggleReasoning(${i})">
+                        <i class="bi bi-chat-text me-1"></i>Show Reasoning
+                    </button>
+                    <div id="reasoning-${i}" class="reasoning-content">
+                        <div class="outlook-box mb-3">
+                            <div class="fw-bold mb-1" style="font-size:.85rem">AI Reasoning</div>
+                            <p class="mb-0" style="font-size:.9rem">${r.reason || 'No reasoning provided'}</p>
+                        </div>
+
+                        ${r.citations && r.citations.length > 0 ? `
+                        <div class="mb-3">
+                            <div class="fw-bold mb-2" style="font-size:.85rem">
+                                <i class="bi bi-bookmark me-1"></i>Citations & Evidence
+                            </div>
+                            <div class="d-flex flex-column gap-2">
+                                ${r.citations.map(c => `<div class="citation-pill"><i class="bi bi-quote me-1"></i>${c}</div>`).join('')}
+                            </div>
+                        </div>` : ''}
+                    </div>
+
+                    <!-- Analysis Links -->
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        ${r.technicals_url ? `<a href="${r.technicals_url}" target="_blank" class="link-btn btn btn-sm btn-outline-info">
+                            <i class="bi bi-graph-up me-1"></i>Technical Analysis
+                        </a>` : ''}
+                        ${r.fundamentals_url ? `<a href="${r.fundamentals_url}" target="_blank" class="link-btn btn btn-sm btn-outline-warning">
+                            <i class="bi bi-bar-chart-line me-1"></i>Fundamentals
+                        </a>` : ''}
+                        <a href="https://www.google.com/finance/quote/${(r.ticker || '').replace('.NS', '')}:NSE" target="_blank" class="link-btn btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-google me-1"></i>Google Finance
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderHoldings(holdings) {
+            const tbody = document.getElementById('holdingsBody');
+            if (!holdings || holdings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary py-4">No holdings</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = holdings.map(h => {
+                const cmp = h.current_price || h.avg_price;
+                const pnl = (cmp - h.avg_price) * h.quantity;
+                const pnlPct = h.avg_price > 0 ? ((cmp - h.avg_price) / h.avg_price * 100) : 0;
+                const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+                return `<tr>
+                    <td>
+                        <div class="fw-bold">${h.name || h.ticker.replace('.NS', '')}</div>
+                        <small class="text-secondary">${h.ticker}</small>
+                    </td>
+                    <td class="text-end">${h.quantity}</td>
+                    <td class="text-end d-none d-sm-table-cell">₹${fmtDec(h.avg_price)}</td>
+                    <td class="text-end">₹${fmtDec(cmp)}</td>
+                    <td class="text-end ${pnlClass}">
+                        ₹${fmt(pnl)}<br>
+                        <small>${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%</small>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        function toggleReasoning(idx) {
+            const el = document.getElementById(`reasoning-${idx}`);
+            el.classList.toggle('show');
+            const btn = el.previousElementSibling;
+            if (el.classList.contains('show')) {
+                btn.innerHTML = '<i class="bi bi-chat-text-fill me-1"></i>Hide Reasoning';
+            } else {
+                btn.innerHTML = '<i class="bi bi-chat-text me-1"></i>Show Reasoning';
+            }
+        }
+
+        async function runAnalysis() {
+            const btn = document.getElementById('analyzeBtn');
+            const spinner = document.getElementById('loadingSpinner');
+            const content = document.getElementById('mainContent');
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Analyzing...';
+            spinner.classList.add('active');
+            content.style.opacity = '0.3';
+
+            try {
+                const res = await fetch('/api/analyze', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    renderRecommendation(data);
+                } else {
+                    alert('Analysis failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Network error: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-lightning-charge-fill me-1"></i><span class="d-none d-sm-inline">Analyze Now</span><span class="d-inline d-sm-none">Run</span>';
+                spinner.classList.remove('active');
+                content.style.opacity = '1';
+            }
+        }
+
+        // Load on page ready
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+azure-functions>=1.17.0
+azure-cosmos>=4.5.0
+azure-identity>=1.14.0
+openai>=1.0.0
+yfinance>=0.2.31
+pandas>=2.0.0
+numpy>=1.24.0
+flask>=3.0.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+gunicorn>=21.2.0
