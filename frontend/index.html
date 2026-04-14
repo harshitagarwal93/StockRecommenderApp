@@ -77,10 +77,10 @@
         <div class="hero-card p-3 p-md-4 mb-4">
             <div class="d-flex flex-wrap align-items-end gap-3">
                 <div class="flex-grow-1" style="min-width:200px">
-                    <label class="stat-label d-block mb-2">Max Buy Amount per Stock (₹)</label>
+                    <label class="stat-label d-block mb-2">Total Investment Budget (₹)</label>
                     <input type="number" id="buyAmountInput" class="form-control bg-dark text-light border-secondary"
                            placeholder="e.g. 10000" min="500" step="500" style="max-width:280px">
-                    <small class="text-secondary mt-1 d-block">Leave blank to use default (₹<span id="defaultBuyAmt">10,000</span>)</small>
+                    <small class="text-secondary mt-1 d-block">Total amount across all BUY recommendations. Default: ₹<span id="defaultBuyAmt">10,000</span></small>
                 </div>
                 <button class="btn btn-primary btn-lg px-4" onclick="runAnalysis()" id="analyzeBtn">
                     <i class="bi bi-lightning-charge-fill me-1"></i>
@@ -196,6 +196,13 @@
                         </tbody>
                     </table>
                 </div>
+                <div id="holdingsPagination" class="d-flex justify-content-between align-items-center mt-2 px-1" style="display:none!important">
+                    <small class="text-secondary" id="holdingsPageInfo"></small>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="holdingsPageNav(-1)" id="holdingsPrev">Prev</button>
+                        <button class="btn btn-outline-secondary" onclick="holdingsPageNav(1)" id="holdingsNext">Next</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Settings -->
@@ -204,7 +211,7 @@
                 <div class="row g-3" id="settingsPanel">
                     <div class="col-6 col-md-4 col-lg-3">
                         <div class="stat-card p-3">
-                            <div class="stat-label">Max Buy Amount</div>
+                            <div class="stat-label">Investment Budget</div>
                             <div class="fw-bold" id="cfgMaxBuy">—</div>
                         </div>
                     </div>
@@ -472,11 +479,42 @@
 
         let _holdingsData = [];
         let _holdingsSort = { key: null, asc: false };
+        let _holdingsPage = 0;
+        const HOLDINGS_PER_PAGE = 15;
+        let _holdingsFiltered = [];
 
         function renderHoldings(holdings) {
             _holdingsData = holdings || [];
             _holdingsSort = { key: null, asc: false };
-            _renderHoldingsRows(_holdingsData);
+            _holdingsPage = 0;
+            _holdingsFiltered = [..._holdingsData];
+            _renderHoldingsPage();
+        }
+
+        function _renderHoldingsPage() {
+            const data = _holdingsFiltered;
+            const totalPages = Math.max(1, Math.ceil(data.length / HOLDINGS_PER_PAGE));
+            _holdingsPage = Math.max(0, Math.min(_holdingsPage, totalPages - 1));
+            const start = _holdingsPage * HOLDINGS_PER_PAGE;
+            const page = data.slice(start, start + HOLDINGS_PER_PAGE);
+
+            _renderHoldingsRows(page);
+
+            const pgDiv = document.getElementById('holdingsPagination');
+            const pgInfo = document.getElementById('holdingsPageInfo');
+            if (data.length > HOLDINGS_PER_PAGE) {
+                pgDiv.style.cssText = 'display:flex!important';
+                pgInfo.textContent = `${start + 1}–${Math.min(start + HOLDINGS_PER_PAGE, data.length)} of ${data.length}`;
+                document.getElementById('holdingsPrev').disabled = _holdingsPage === 0;
+                document.getElementById('holdingsNext').disabled = _holdingsPage >= totalPages - 1;
+            } else {
+                pgDiv.style.cssText = 'display:none!important';
+            }
+        }
+
+        function holdingsPageNav(dir) {
+            _holdingsPage += dir;
+            _renderHoldingsPage();
         }
 
         function _renderHoldingsRows(holdings) {
@@ -512,10 +550,10 @@
                 _holdingsSort.asc = !_holdingsSort.asc;
             } else {
                 _holdingsSort.key = key;
-                _holdingsSort.asc = false; // default descending
+                _holdingsSort.asc = false;
             }
 
-            const sorted = [..._holdingsData].sort((a, b) => {
+            _holdingsFiltered.sort((a, b) => {
                 const cmpA = a.current_price || a.avg_price;
                 const cmpB = b.current_price || b.avg_price;
                 let valA, valB;
@@ -531,7 +569,8 @@
                 }
                 return _holdingsSort.asc ? valA - valB : valB - valA;
             });
-            _renderHoldingsRows(sorted);
+            _holdingsPage = 0;
+            _renderHoldingsPage();
         }
 
         function toggleReasoning(idx) {
@@ -587,11 +626,17 @@
 
         function filterHoldings() {
             const query = document.getElementById('holdingsSearch').value.toLowerCase();
-            const rows = document.querySelectorAll('#holdingsBody tr');
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(query) ? '' : 'none';
-            });
+            if (!query) {
+                _holdingsFiltered = [..._holdingsData];
+            } else {
+                _holdingsFiltered = _holdingsData.filter(h => {
+                    const name = (h.name || '').toLowerCase();
+                    const ticker = (h.ticker || '').toLowerCase();
+                    return name.includes(query) || ticker.includes(query);
+                });
+            }
+            _holdingsPage = 0;
+            _renderHoldingsPage();
         }
 
         function connectKite(e) {

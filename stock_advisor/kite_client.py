@@ -55,13 +55,11 @@ def fetch_kite_holdings(config: Config) -> list[dict]:
     holdings = _fetch_holdings(headers)
     positions = _fetch_positions(headers)
 
-    # Combine and deduplicate — exclude smallcase holdings
+    # Combine and deduplicate — only NSE exchange (smallcase typically uses BSE)
     combined: dict[str, dict] = {}
     for h in holdings:
-        # Skip smallcase-managed holdings
-        tags = h.get("tag", "") or ""
-        product = h.get("product", "") or ""
-        if "smallcase" in tags.lower() or "smallcase" in product.lower():
+        exchange = h.get("exchange", "") or ""
+        if exchange.upper() != "NSE":
             continue
 
         ticker = kite_to_yfinance(h.get("tradingsymbol", ""))

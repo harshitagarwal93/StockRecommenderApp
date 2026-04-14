@@ -32,7 +32,7 @@ Your analysis approach:
 4. RISK: Consider 52-week highs/lows, volatility, sector concentration
 
 CRITICAL RULES:
-- Each BUY recommendation total cost (quantity × price) must NOT exceed the MAX_BUY_AMOUNT
+- The total cost of ALL BUY recommendations combined must NOT exceed the TOTAL_INVESTMENT_BUDGET
 - Never recommend intraday or short-term trades
 - Only recommend sells for portfolio holdings
 - Set realistic target prices (10-30% upside over 6-12 months) and stop losses (8-15% below entry)
@@ -54,7 +54,7 @@ Holdings:
 {holdings_table}
 
 === CONSTRAINTS ===
-- Max BUY amount per stock: Rs.{max_buy_amount:,.0f}
+- Total investment budget for BUY recommendations: Rs.{max_buy_amount:,.0f} (total across all buys)
 - Max portfolio positions: {max_positions}
 - Max single stock allocation: {max_alloc}% of total portfolio value
 - Total portfolio value (cash + holdings): Rs.{total_value:,.0f}
@@ -94,7 +94,7 @@ Return your response as valid JSON matching this exact schema:
 }}
 
 IMPORTANT:
-- Each BUY total cost (quantity * current_price) must not exceed Rs.{max_buy_amount:,.0f}
+- Total cost of ALL BUY recommendations combined must not exceed Rs.{max_buy_amount:,.0f}
 - Include 2-4 specific citations per recommendation
 - If no action is warranted, return an empty recommendations array
 - Return ONLY the JSON, no markdown fencing
