@@ -31,6 +31,7 @@
         .citation-pill { background: #21262d; border: 1px solid #30363d; border-radius: 8px; padding: 6px 12px; font-size: .8rem; color: #c9d1d9; }
         .link-btn { font-size: .8rem; padding: 4px 12px; border-radius: 16px; text-decoration: none; }
         .holdings-table th { font-size: .75rem; text-transform: uppercase; color: #8b949e; border-bottom: 1px solid #30363d !important; }
+        .holdings-table th.sortable:hover { color: #e6edf3; }
         .holdings-table td { border-bottom: 1px solid #21262d !important; vertical-align: middle; }
         .pnl-positive { color: var(--buy); }
         .pnl-negative { color: var(--sell); }
@@ -185,11 +186,13 @@
                                 <th class="text-end">Qty</th>
                                 <th class="text-end d-none d-sm-table-cell">Avg Price</th>
                                 <th class="text-end">CMP</th>
-                                <th class="text-end">P&L</th>
+                                <th class="text-end sortable" onclick="sortHoldings('invested')" style="cursor:pointer" title="Sort by invested">Invested <i class="bi bi-arrow-down-up" style="font-size:.65rem"></i></th>
+                                <th class="text-end sortable" onclick="sortHoldings('pnl')" style="cursor:pointer" title="Sort by P&L">P&L <i class="bi bi-arrow-down-up" style="font-size:.65rem"></i></th>
+                                <th class="text-end sortable" onclick="sortHoldings('pnlPct')" style="cursor:pointer" title="Sort by % return">% <i class="bi bi-arrow-down-up" style="font-size:.65rem"></i></th>
                             </tr>
                         </thead>
                         <tbody id="holdingsBody">
-                            <tr><td colspan="5" class="text-center text-secondary py-4">No holdings data</td></tr>
+                            <tr><td colspan="7" class="text-center text-secondary py-4">No holdings data</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -405,15 +408,25 @@
             `).join('');
         }
 
+        let _holdingsData = [];
+        let _holdingsSort = { key: null, asc: false };
+
         function renderHoldings(holdings) {
+            _holdingsData = holdings || [];
+            _holdingsSort = { key: null, asc: false };
+            _renderHoldingsRows(_holdingsData);
+        }
+
+        function _renderHoldingsRows(holdings) {
             const tbody = document.getElementById('holdingsBody');
             if (!holdings || holdings.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary py-4">No holdings</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-4">No holdings</td></tr>';
                 return;
             }
 
             tbody.innerHTML = holdings.map(h => {
                 const cmp = h.current_price || h.avg_price;
+                const invested = h.quantity * h.avg_price;
                 const pnl = (cmp - h.avg_price) * h.quantity;
                 const pnlPct = h.avg_price > 0 ? ((cmp - h.avg_price) / h.avg_price * 100) : 0;
                 const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
@@ -425,12 +438,38 @@
                     <td class="text-end">${h.quantity}</td>
                     <td class="text-end d-none d-sm-table-cell">₹${fmtDec(h.avg_price)}</td>
                     <td class="text-end">₹${fmtDec(cmp)}</td>
-                    <td class="text-end ${pnlClass}">
-                        ₹${fmt(pnl)}<br>
-                        <small>${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%</small>
-                    </td>
+                    <td class="text-end">₹${fmt(invested)}</td>
+                    <td class="text-end ${pnlClass}">₹${fmt(pnl)}</td>
+                    <td class="text-end ${pnlClass}">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%</td>
                 </tr>`;
             }).join('');
+        }
+
+        function sortHoldings(key) {
+            if (_holdingsSort.key === key) {
+                _holdingsSort.asc = !_holdingsSort.asc;
+            } else {
+                _holdingsSort.key = key;
+                _holdingsSort.asc = false; // default descending
+            }
+
+            const sorted = [..._holdingsData].sort((a, b) => {
+                const cmpA = a.current_price || a.avg_price;
+                const cmpB = b.current_price || b.avg_price;
+                let valA, valB;
+                if (key === 'invested') {
+                    valA = a.quantity * a.avg_price;
+                    valB = b.quantity * b.avg_price;
+                } else if (key === 'pnl') {
+                    valA = (cmpA - a.avg_price) * a.quantity;
+                    valB = (cmpB - b.avg_price) * b.quantity;
+                } else {
+                    valA = a.avg_price > 0 ? ((cmpA - a.avg_price) / a.avg_price * 100) : 0;
+                    valB = b.avg_price > 0 ? ((cmpB - b.avg_price) / b.avg_price * 100) : 0;
+                }
+                return _holdingsSort.asc ? valA - valB : valB - valA;
+            });
+            _renderHoldingsRows(sorted);
         }
 
         function toggleReasoning(idx) {
