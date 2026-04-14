@@ -270,13 +270,15 @@
         let _lastRec = null;
 
         async function loadData() {
+            const loader = document.getElementById('initialLoader');
+            const content = document.getElementById('mainContent');
             try {
                 const [recRes, settingsRes] = await Promise.all([
-                    fetch(`${API_BASE}/api/recommendation`),
-                    fetch(`${API_BASE}/api/settings`),
+                    fetch(`${API_BASE}/api/recommendation`).catch(() => null),
+                    fetch(`${API_BASE}/api/settings`).catch(() => null),
                 ]);
 
-                if (settingsRes.ok) {
+                if (settingsRes && settingsRes.ok) {
                     const s = await settingsRes.json();
                     document.getElementById('cfgMaxBuy').textContent = `₹${fmt(s.max_buy_amount)}`;
                     document.getElementById('defaultBuyAmt').textContent = fmt(s.max_buy_amount);
@@ -303,16 +305,15 @@
                     }
                 }
 
-                if (recRes.ok) {
+                if (recRes && recRes.ok) {
                     _lastRec = await recRes.json();
                     renderRecommendation(_lastRec);
                 }
             } catch (e) {
                 console.error('Failed to load data:', e);
-            } finally {
-                document.getElementById('initialLoader').style.display = 'none';
-                document.getElementById('mainContent').style.display = 'block';
             }
+            loader.style.display = 'none';
+            content.style.display = 'block';
         }
 
         function renderRecommendation(rec) {
