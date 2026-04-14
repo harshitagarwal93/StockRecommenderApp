@@ -13,3 +13,5 @@ venv/
 deploy.zip
 func-deploy.zip
 local.settings.json
+
+func-pkg.zip
