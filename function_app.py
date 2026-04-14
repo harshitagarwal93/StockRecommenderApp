@@ -109,37 +109,53 @@ def stock_search(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(json.dumps([]), mimetype="application/json")
 
     try:
-        # Yahoo Finance autocomplete API (public, no auth needed)
-        resp = requests.get(
-            "https://query2.finance.yahoo.com/v1/finance/search",
-            params={"q": query, "quotesCount": 10, "newsCount": 0, "enableFuzzyQuery": True, "quotesQueryId": "tss_match_phrase_query"},
-            headers={"User-Agent": "StockAdvisor/1.0"},
-            timeout=5,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
+        seen = set()
         results = []
-        for q in data.get("quotes", []):
-            symbol = q.get("symbol", "")
-            exchange = q.get("exchange", "")
-            # Only NSE/BSE Indian stocks
-            if exchange not in ("NSMS", "NSI", "BSE", "BOM") and not symbol.endswith((".NS", ".BO")):
+
+        # Search with both raw query and .NS suffix to find Indian stocks
+        search_queries = [query, f"{query}.ns"]
+
+        for sq in search_queries:
+            try:
+                resp = requests.get(
+                    "https://query2.finance.yahoo.com/v1/finance/search",
+                    params={"q": sq, "quotesCount": 10, "newsCount": 0, "enableFuzzyQuery": True},
+                    headers={"User-Agent": "StockAdvisor/1.0"},
+                    timeout=5,
+                )
+                if not resp.ok:
+                    continue
+                data = resp.json()
+
+                for q in data.get("quotes", []):
+                    symbol = q.get("symbol", "")
+                    exchange = q.get("exchange", "")
+
+                    # Accept NSE/BSE Indian stocks
+                    is_indian = exchange in ("NSI", "NSE", "NSMS", "BSE", "BOM") or symbol.endswith((".NS", ".BO"))
+                    if not is_indian:
+                        continue
+
+                    # Normalise to .NS, skip BSE duplicates
+                    if symbol.endswith(".BO"):
+                        symbol = symbol.replace(".BO", ".NS")
+                    elif not symbol.endswith(".NS"):
+                        symbol = symbol + ".NS"
+
+                    if symbol in seen:
+                        continue
+                    seen.add(symbol)
+
+                    results.append({
+                        "symbol": symbol,
+                        "name": q.get("shortname") or q.get("longname") or symbol.replace(".NS", ""),
+                        "exchange": "NSE",
+                        "type": q.get("quoteType", "EQUITY"),
+                    })
+            except Exception:
                 continue
-            # Normalise to .NS
-            if not symbol.endswith(".NS"):
-                if symbol.endswith(".BO"):
-                    continue  # Skip BSE duplicates
-                symbol = symbol + ".NS"
 
-            results.append({
-                "symbol": symbol,
-                "name": q.get("shortname") or q.get("longname") or symbol.replace(".NS", ""),
-                "exchange": "NSE",
-                "type": q.get("quoteType", "EQUITY"),
-            })
-
-        return func.HttpResponse(json.dumps(results), mimetype="application/json")
+        return func.HttpResponse(json.dumps(results[:10]), mimetype="application/json")
     except Exception as e:
         logger.exception("Stock search failed")
         return func.HttpResponse(json.dumps([]), mimetype="application/json")
