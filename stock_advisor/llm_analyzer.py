@@ -225,19 +225,31 @@ def analyze(
             instructions=system_prompt,
             input=user_prompt,
             temperature=0.2,
-            max_output_tokens=4096,
+            max_output_tokens=8192,
         )
 
         content = response.output_text.strip()
-        # Strip markdown fencing if present
-        if content.startswith("```"):
-            content = content.split("\n", 1)[1]
-            if content.endswith("```"):
-                content = content[:-3]
+
+        # Robust markdown fence stripping
+        if "```" in content:
+            import re
+            match = re.search(r'```(?:json)?\s*\n?(.*?)```', content, re.DOTALL)
+            if match:
+                content = match.group(1).strip()
+
+        # Try to extract JSON if wrapped in extra text
+        if not content.startswith("{"):
+            start = content.find("{")
+            if start >= 0:
+                content = content[start:]
+        if not content.endswith("}"):
+            end = content.rfind("}")
+            if end >= 0:
+                content = content[:end + 1]
 
         result = json.loads(content)
     except json.JSONDecodeError:
-        logger.error("LLM returned invalid JSON:\n%s", content[:500])
+        logger.error("LLM returned invalid JSON:\n%s", content[:1000])
         result = {
             "market_outlook": "Analysis failed — LLM returned invalid response.",
             "recommendations": [],
