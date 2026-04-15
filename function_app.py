@@ -29,7 +29,7 @@ def _pm() -> PortfolioManager:
     return PortfolioManager(_config, _store)
 
 
-@app.timer_trigger(schedule="0 30 4,30 6,30 7,30 9 * * 1-5", arg_name="timer", run_on_startup=False)
+@app.timer_trigger(schedule="0 30 4,6,7,9 * * 1-5", arg_name="timer", run_on_startup=False)
 def daily_stock_analysis(timer: func.TimerRequest) -> None:
     """Runs Mon-Fri at 10:00, 12:00, 13:00, 15:00 IST."""
     if timer.past_due:
