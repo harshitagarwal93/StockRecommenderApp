@@ -14,45 +14,49 @@ from .models import TechnicalIndicators, FundamentalData
 logger = logging.getLogger(__name__)
 
 SINGLE_STOCK_PROMPT = """\
-You are a SEBI-registered-grade equity research analyst. Provide a comprehensive investment analysis for the stock below.
+You are an expert financial analyst specializing in Indian equity markets (NSE/BSE). Provide a comprehensive investment analysis for the stock below.
 
-## YOUR ANALYSIS MUST COVER:
+## Context
+- Market: Indian equities (NSE)
+- Currency: INR (Rs.)
+- Benchmark valuations: Indian sector peers, not global averages
 
-### 1. FUNDAMENTAL ANALYSIS (Score 0-10)
-Rate using these thresholds and cite EXACT numbers from the data:
-- ROE: >15% good (2pts), >20% excellent (3pts)
-- Debt/Equity: <1.0 good (2pts), <0.5 excellent (3pts)
-- Revenue Growth: >10% good (1pt), >20% excellent (2pts)
-- Profit Margin: >10% good (1pt), >15% excellent (2pts)
-- PE vs sector: below average = undervalued (1pt)
+## Analysis Framework
 
-### 2. TECHNICAL ANALYSIS (Score 0-10)
-Rate each (2pts each if favorable):
-- RSI(14): 30-55 = neutral-oversold (favorable), >70 = overbought (unfavorable)
-- MACD: histogram positive or bullish crossover = favorable
-- Moving Averages: price > SMA200 = long-term uptrend, price > SMA50 = medium-term
-- Bollinger Position: near lower band = favorable, near upper = unfavorable
-- Volume: above 20d average = institutional interest
+### Technical Analysis (weight: 40%)
+Evaluate from the data provided. Omit gracefully if not available:
+- Trend: Price vs 50/200-day SMA; trend direction (uptrend, downtrend, sideways)
+- Momentum: RSI(14) — overbought >70, oversold <30; MACD crossover signals
+- Volume: Current vs 20-day average — confirms conviction
+- Support/Resistance: 52-week high/low proximity, Bollinger Band position
+- Price momentum: 1M, 3M, 6M returns for trend confirmation
 
-### 3. VALUATION ASSESSMENT
-- Compare PE, PB to sector averages and historical range
-- Is the stock cheap, fair, or expensive at current levels?
-- What PE re-rating potential exists?
+### Fundamental Analysis (weight: 60%)
+Evaluate from the data provided. Omit gracefully if not available:
+- Valuation: P/E, P/B vs sector peers
+- Profitability: ROE, profit margin
+- Growth: Revenue growth YoY
+- Balance sheet: Debt-to-equity ratio
+- Dividend: Yield as income signal
+- Business quality: Sector positioning, market cap
 
-### 4. KEY RISKS
-- What could go wrong? Be specific (sector headwinds, debt concerns, governance, etc.)
+## Scoring (mandatory)
+- Technical score: 1 (very bearish) to 10 (very bullish)
+- Fundamental score: 1 (very weak) to 10 (very strong)
+- Composite score: (Technical x 0.4) + (Fundamental x 0.6), rounded to 1 decimal
 
-### 5. VERDICT: BUY, SELL, or HOLD
-- Provide a clear, unambiguous recommendation
-- Target price with specific reasoning (PE re-rating, growth projection)
-- Stop loss at nearest support level
-- Expected holding period
-- Risk:Reward ratio (must be at least 1:2 for BUY)
+## Recommendation Logic (deterministic)
+- Composite >= 7.0 → BUY
+- Composite 5.0–6.9 → HOLD
+- Composite < 5.0 → SELL
+- Confidence: HIGH if data complete and signals align, MEDIUM if partial, LOW if conflicting
 
-## RULES
-- Use ONLY the data provided — do not hallucinate numbers
+## Rules
+- Use ONLY the data provided — never fabricate financial data
+- If a data field is missing, set it to null and note in data_quality
 - Be direct and actionable — this determines real investment decisions
-- If data is insufficient for a confident recommendation, say so explicitly
+- For BUY: target based on PE re-rating; stop loss at SMA200 or support; R:R >= 1:2
+- Keep reasoning concise — 2-3 sentences per section
 """
 
 USER_STOCK_PROMPT = """\
@@ -79,9 +83,9 @@ Revenue Growth: {rev_growth:.1f}% | Profit Margin: {margin:.1f}%
 {holding_info}
 
 === TASK ===
-Provide a comprehensive analysis and clear BUY/SELL/HOLD recommendation.
+Provide comprehensive analysis and a clear recommendation.
 
-Return valid JSON (no markdown fencing):
+Respond ONLY with valid JSON (no preamble, no markdown fences):
 {{
   "recommendation": "BUY or SELL or HOLD",
   "confidence": "HIGH or MEDIUM or LOW",
@@ -90,13 +94,15 @@ Return valid JSON (no markdown fencing):
   "expected_holding_period": "6-12 months",
   "risk_reward_ratio": "1:2.5",
   "fundamental_score": 7,
-  "fundamental_analysis": "Detailed fundamental assessment with specific metrics",
   "technical_score": 6,
-  "technical_analysis": "Detailed technical assessment with specific indicator readings",
+  "composite_score": 6.6,
+  "fundamental_analysis": "2-3 sentences with specific metrics from data",
+  "technical_analysis": "2-3 sentences with specific indicator readings from data",
   "valuation_assessment": "Is the stock cheap, fair, or expensive and why",
   "key_risks": ["Risk 1 with specific detail", "Risk 2"],
-  "verdict_summary": "2-3 sentence actionable summary",
-  "citations": ["Specific metric 1", "Specific metric 2", "Specific metric 3"]
+  "data_quality": "Complete / Partial — note any missing data fields",
+  "verdict_summary": "2-3 sentence actionable summary citing composite score",
+  "citations": ["Specific metric 1 from data", "Specific metric 2", "Specific metric 3"]
 }}
 """
 

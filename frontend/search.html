@@ -107,17 +107,26 @@
                 <!-- Scores -->
                 <div class="row g-3 mb-3">
                     <div class="col-4 text-center">
-                        <div class="section-label">Fundamental</div>
+                        <div class="section-label">Fundamental (60%)</div>
                         <div class="score-ring mx-auto" id="fundScore"></div>
                     </div>
-                    <div class="col-4 text-center">
-                        <div class="section-label">Technical</div>
+                    <div class="col-3 text-center">
+                        <div class="section-label">Technical (40%)</div>
                         <div class="score-ring mx-auto" id="techScore"></div>
                     </div>
-                    <div class="col-4 text-center">
+                    <div class="col-3 text-center">
+                        <div class="section-label">Composite</div>
+                        <div class="score-ring mx-auto" id="compositeScore"></div>
+                    </div>
+                    <div class="col-3 text-center">
                         <div class="section-label">Risk:Reward</div>
                         <div class="fw-bold fs-5 mt-2" id="resultRR"></div>
                     </div>
+                </div>
+
+                <!-- Data Quality -->
+                <div class="mt-3 text-center">
+                    <small class="text-secondary"><i class="bi bi-info-circle me-1"></i><span id="resultDataQuality"></span></small>
                 </div>
 
                 <!-- Target / SL / Holding -->
@@ -345,7 +354,9 @@
             // Scores
             setScore('fundScore', d.fundamental_score);
             setScore('techScore', d.technical_score);
+            setScore('compositeScore', d.composite_score);
             document.getElementById('resultRR').textContent = d.risk_reward_ratio || 'N/A';
+            document.getElementById('resultDataQuality').textContent = `Data Quality: ${d.data_quality || 'N/A'}`;
 
             // Targets
             document.getElementById('resultTarget').textContent = d.target_price ? `₹${fmtDec(d.target_price)}` : 'N/A';
