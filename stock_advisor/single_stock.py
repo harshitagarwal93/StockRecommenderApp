@@ -41,15 +41,30 @@ Used ONLY for entry/exit TIMING:
 - Bollinger: near lower band = better entry point
 - NOT used: MACD crossovers, momentum signals, chart patterns
 
-## Scoring (mandatory)
-- Fundamental score: 1 (very weak / overvalued) to 10 (excellent quality + deeply undervalued)
-- Technical score: 1 (terrible entry timing) to 10 (ideal entry point)
-- Composite score: (Fundamental x 0.75) + (Technical x 0.25), rounded to 1 decimal
+## Scoring Guide (mandatory — use this rubric)
+
+### Fundamental score:
+- 9-10: Excellent quality (ROE >20%, strong growth) AND deeply undervalued (PE well below 90d avg)
+- 7-8: Good quality at fair-to-attractive valuation (PE near or below 90d avg, strong ROE/margins)
+- 5-6: Average business or fairly valued (mixed fundamentals)
+- 3-4: Weak fundamentals OR significantly overvalued (PE >15% above 90d avg, declining ROE)
+- 1-2: Very weak (deteriorating, negative growth, D/E >2)
+
+IMPORTANT: Quality franchise (ROE >20%, margin >15%) at its NORMAL historical PE = score 7-8, NOT 5-6.
+
+### Technical score:
+- 9-10: Oversold (RSI <30), at strong support, accumulation volume
+- 7-8: Neutral-to-favorable (RSI 30-50, near SMA200)
+- 5-6: Neutral
+- 3-4: Unfavorable (RSI >70, extended)
+- 1-2: Severely overbought
+
+### Composite: (Fundamental x 0.75) + (Technical x 0.25), rounded to 1 decimal
 
 ## Recommendation Logic (deterministic)
-- Composite >= 7.0 → BUY (quality at attractive valuation)
-- Composite 5.0–6.9 → HOLD (fair value or mixed signals)
-- Composite < 5.0 → SELL (deteriorating or overvalued)
+- Composite >= 7.0 → BUY
+- Composite 5.0–6.9 → HOLD
+- Composite < 5.0 → SELL
 - Confidence: HIGH = strong fundamentals + undervalued, MEDIUM = partial data, LOW = conflicting
 
 ## Value Rules

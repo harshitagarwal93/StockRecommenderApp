@@ -62,10 +62,25 @@ Used ONLY for entry/exit TIMING, not for the investment decision itself:
 - Bollinger position: near lower band = better entry point
 - NOT used: MACD crossovers, short-term momentum, chart patterns (these are momentum signals)
 
-## Scoring (mandatory for every stock)
-- Fundamental score: 1 (very weak / overvalued) to 10 (excellent quality + deeply undervalued)
-- Technical score: 1 (terrible entry timing) to 10 (ideal entry point)
-- Composite score: (Fundamental x 0.75) + (Technical x 0.25), rounded to 1 decimal
+## Scoring Guide (mandatory — use this rubric)
+
+### Fundamental score (1-10):
+- 9-10: Excellent quality (ROE >20%, strong growth) AND deeply undervalued (PE well below 90d avg)
+- 7-8: Good quality business at fair-to-attractive valuation (PE near or below 90d avg, strong ROE/margins)
+- 5-6: Average business or fairly valued (mixed fundamentals, PE near historical norm)
+- 3-4: Weak fundamentals OR significantly overvalued (PE >15% above 90d avg, declining ROE, high debt)
+- 1-2: Very weak (deteriorating business, negative growth, D/E >2, thesis broken)
+
+IMPORTANT: A quality franchise (ROE >20%, margin >15%) trading at its NORMAL historical PE should score 7-8, NOT 5-6. High absolute PE with stable PE history = fair value for quality.
+
+### Technical score (1-10):
+- 9-10: Oversold (RSI <30), at strong support, accumulation volume
+- 7-8: Neutral-to-favorable timing (RSI 30-50, near SMA200 support)
+- 5-6: Neutral (no strong signal either way)
+- 3-4: Unfavorable timing (RSI >70, extended above bands)
+- 1-2: Severely overbought with distribution volume
+
+### Composite: (Fundamental x 0.75) + (Technical x 0.25), rounded to 1 decimal
 
 ## Recommendation Logic (deterministic)
 - Composite >= 7.0 → BUY: quality business at attractive valuation
