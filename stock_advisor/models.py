@@ -100,6 +100,9 @@ class FundamentalData:
     sector: str = "Unknown"
     market_cap: float = 0.0
     pe_ratio: float = 0.0
+    pe_5d_avg: float = 0.0
+    pe_30d_avg: float = 0.0
+    pe_90d_avg: float = 0.0
     pb_ratio: float = 0.0
     dividend_yield: float = 0.0
     roe: float = 0.0

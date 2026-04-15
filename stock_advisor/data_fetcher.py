@@ -65,10 +65,26 @@ def fetch_fundamental_data(ticker: str, category: str = "LARGE_CAP") -> Fundamen
     default_name = universe.get(ticker, (ticker, category))[0]
 
     try:
-        info: dict[str, Any] = yf.Ticker(ticker).info
+        t = yf.Ticker(ticker)
+        info: dict[str, Any] = t.info
     except Exception:
         logger.warning("%s: failed to fetch fundamentals", ticker)
         return FundamentalData(ticker=ticker, name=default_name, category=category)
+
+    # Compute historical PE averages from price history + trailing EPS
+    pe_5d, pe_30d, pe_90d = 0.0, 0.0, 0.0
+    trailing_eps = info.get("trailingEps") or 0
+    if trailing_eps > 0:
+        try:
+            hist = t.history(period="6mo")["Close"]
+            if len(hist) >= 5:
+                pe_5d = round(float(hist.tail(5).mean() / trailing_eps), 2)
+            if len(hist) >= 30:
+                pe_30d = round(float(hist.tail(30).mean() / trailing_eps), 2)
+            if len(hist) >= 90:
+                pe_90d = round(float(hist.tail(90).mean() / trailing_eps), 2)
+        except Exception:
+            pass
 
     return FundamentalData(
         ticker=ticker,
@@ -76,6 +92,9 @@ def fetch_fundamental_data(ticker: str, category: str = "LARGE_CAP") -> Fundamen
         sector=info.get("sector") or "Unknown",
         market_cap=info.get("marketCap") or 0,
         pe_ratio=info.get("trailingPE") or 0,
+        pe_5d_avg=pe_5d,
+        pe_30d_avg=pe_30d,
+        pe_90d_avg=pe_90d,
         pb_ratio=info.get("priceToBook") or 0,
         dividend_yield=(info.get("dividendYield") or 0) * 100,
         roe=(info.get("returnOnEquity") or 0) * 100,

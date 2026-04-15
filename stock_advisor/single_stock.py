@@ -27,7 +27,7 @@ You are an expert value investing analyst specializing in Indian equity markets 
 ### Fundamental / Value Analysis (weight: 75%)
 PRIMARY driver. Evaluate from data provided, omit gracefully if unavailable:
 
-**Valuation:** P/E, P/B vs sector peers — is it cheap relative to quality?
+**Valuation:** P/E, P/B vs sector peers. Compare current PE to 5d/30d/90d PE averages — PE below 90d avg = getting cheaper; consistently premium PE across periods = quality premium (may be justified); PE above 90d avg = getting expensive
 **Business Quality:** ROE (>15% good, >20% excellent), profit margin (>10% good), revenue growth
 **Financial Strength:** Debt/Equity (<1.0 good, <0.5 excellent). Avoid D/E > 2.0
 **Dividend:** Yield > 2% signals management confidence
@@ -77,7 +77,8 @@ Bollinger Bands: [{bb_lower:,.2f} — {bb_mid:,.2f} — {bb_upper:,.2f}]
 Volume: {volume:,.0f} (20d avg: {vol_avg:,.0f})
 
 === FUNDAMENTAL DATA ===
-PE Ratio: {pe:.1f} | PB Ratio: {pb:.1f} | Dividend Yield: {div_yield:.1f}%
+PE Ratio: {pe:.1f} | PE 5d avg: {pe_5d:.1f} | PE 30d avg: {pe_30d:.1f} | PE 90d avg: {pe_90d:.1f}
+PB Ratio: {pb:.1f} | Dividend Yield: {div_yield:.1f}%
 ROE: {roe:.1f}% | Debt/Equity: {de:.1f}
 Revenue Growth: {rev_growth:.1f}% | Profit Margin: {margin:.1f}%
 
@@ -147,6 +148,9 @@ def analyze_single_stock(
         volume=technicals.current_volume,
         vol_avg=technicals.volume_avg_20,
         pe=fundamentals.pe_ratio,
+        pe_5d=fundamentals.pe_5d_avg,
+        pe_30d=fundamentals.pe_30d_avg,
+        pe_90d=fundamentals.pe_90d_avg,
         pb=fundamentals.pb_ratio,
         div_yield=fundamentals.dividend_yield,
         roe=fundamentals.roe,

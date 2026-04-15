@@ -30,6 +30,10 @@ This is the PRIMARY driver. Evaluate from data provided, omit gracefully if unav
 
 **Valuation (is it cheap?)**
 - P/E vs sector peers: significantly below sector = attractive
+- P/E vs own history: compare current PE to 5d/30d/90d PE averages
+  - PE below 90d average = stock getting cheaper (value opportunity)
+  - PE consistently high across all periods = premium stock (may deserve it if quality justifies)
+  - PE rising above 90d average = getting expensive (less margin of safety)
 - P/B < 2: asset-backed value; P/B < 1: potential deep value
 - Dividend yield > 2%: income cushion and management confidence signal
 
@@ -194,8 +198,12 @@ Volume: {t.current_volume:,.0f} (20d avg: {t.volume_avg_20:,.0f})"""
 
         if a.fundamentals:
             f = a.fundamentals
+            pe_hist = ""
+            if f.pe_5d_avg or f.pe_30d_avg or f.pe_90d_avg:
+                pe_hist = f" | PE 5d avg: {f.pe_5d_avg:.1f} | 30d avg: {f.pe_30d_avg:.1f} | 90d avg: {f.pe_90d_avg:.1f}"
             section += f"""
-PE: {f.pe_ratio:.1f} | PB: {f.pb_ratio:.1f} | Div Yield: {f.dividend_yield:.1f}%
+PE: {f.pe_ratio:.1f}{pe_hist}
+PB: {f.pb_ratio:.1f} | Div Yield: {f.dividend_yield:.1f}%
 ROE: {f.roe:.1f}% | D/E: {f.debt_to_equity:.1f} | Rev Growth: {f.revenue_growth:.1f}%
 Profit Margin: {f.profit_margin:.1f}% | Sector: {f.sector} | MCap: Rs.{f.market_cap/1e7:,.0f} Cr"""
 
