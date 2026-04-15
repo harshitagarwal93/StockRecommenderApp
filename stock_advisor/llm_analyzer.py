@@ -57,7 +57,8 @@ Recommend SELL for existing holdings if ANY of these apply:
 ## CRITICAL RULES
 - Total cost of ALL BUY recommendations must NOT exceed the TOTAL_INVESTMENT_BUDGET
 - You can ONLY recommend SELL for stocks currently held in the portfolio
-- If no compelling opportunity exists, return ZERO recommendations (holding is a valid strategy)
+- Do NOT include HOLD recommendations — only output BUY or SELL actions. If a stock should be held, simply omit it
+- If no compelling opportunity exists, return ZERO recommendations (an empty array means hold everything)
 - Every metric you cite MUST come from the data provided — do not hallucinate numbers
 - Be specific: cite exact PE, RSI, SMA values from the data, not vague statements
 """
@@ -95,7 +96,7 @@ Return ONLY valid JSON (no markdown fencing) matching this schema:
     {{
       "ticker": "SYMBOL.NS",
       "name": "Company Name",
-      "action": "BUY or SELL",
+      "action": "BUY or SELL (never HOLD — omit stocks that should be held)",
       "quantity": 5,
       "current_price": 1234.56,
       "target_price": 1400.00,
@@ -118,9 +119,9 @@ Return ONLY valid JSON (no markdown fencing) matching this schema:
 """
 
 MODE_INSTRUCTIONS = {
-    "all": "Analyze ALL candidates. Provide BUY recommendations for the best new opportunities AND SELL recommendations for any holdings that meet sell criteria. Apply the full 5-step methodology.",
-    "buy": "Focus ONLY on BUY opportunities. Identify the strongest candidates for purchase within the investment budget. Do NOT recommend any SELL actions. Apply Steps 1-2 and 4-5 of the methodology.",
-    "sell": "Focus ONLY on SELL decisions for current holdings. Evaluate each holding against the SELL trigger conditions in Step 3. Do NOT recommend any BUY actions. For each holding, state whether to HOLD or SELL with specific reasoning.",
+    "all": "Analyze ALL candidates. Provide only BUY and SELL recommendations — do NOT include HOLD. Omit any stock that should simply be held. Focus your analysis depth on actionable opportunities only.",
+    "buy": "Focus ONLY on BUY opportunities. Identify the strongest candidates for purchase within the investment budget. Do NOT include SELL or HOLD. Apply Steps 1-2 and 4-5 of the methodology.",
+    "sell": "Focus ONLY on SELL decisions for current holdings. Only include stocks that should be SOLD — omit holdings that should be kept. Do NOT include BUY or HOLD. Apply Step 3 sell triggers rigorously.",
 }
 
 
@@ -265,8 +266,11 @@ def analyze(
             "risk_assessment": "Unable to assess",
         }
 
-    # Add analysis URLs to each recommendation
-    for rec in result.get("recommendations", []):
+    # Filter out any HOLD recommendations and add analysis URLs
+    recs = [r for r in result.get("recommendations", []) if r.get("action", "").upper() != "HOLD"]
+    result["recommendations"] = recs
+
+    for rec in recs:
         symbol = rec.get("ticker", "").replace(".NS", "")
         rec["technicals_url"] = f"https://www.tradingview.com/chart/?symbol=NSE:{symbol}"
         rec["fundamentals_url"] = f"https://www.screener.in/company/{symbol}/"
