@@ -392,39 +392,57 @@
                 const h = holdMap[r.ticker];
                 let pnlBlock = '';
 
-                if (r.action === 'SELL' && h) {
-                    const gain = (r.current_price - h.avg_price) * r.quantity;
-                    const gainPct = h.avg_price > 0 ? ((r.current_price - h.avg_price) / h.avg_price * 100) : 0;
+                if (r.action === 'SELL') {
+                    // Use enriched data from backend, fallback to holdMap
+                    const entryPrice = r.entry_price || (h && h.avg_price) || 0;
+                    const holdQty = r.holding_qty || (h && h.quantity) || 0;
+                    const sellQty = r.quantity || holdQty;
+                    const buyDate = r.buy_date || (h && h.buy_date) || '';
+                    const gain = entryPrice > 0 ? (r.current_price - entryPrice) * sellQty : 0;
+                    const gainPct = entryPrice > 0 ? ((r.current_price - entryPrice) / entryPrice * 100) : 0;
                     const gainClass = gain >= 0 ? 'pnl-positive' : 'pnl-negative';
-                    const tax = _calcTax(h.buy_date, gain);
+                    const tax = _calcTax(buyDate, gain);
                     const netProfit = gain - tax.tax;
                     const netClass = netProfit >= 0 ? 'pnl-positive' : 'pnl-negative';
 
                     pnlBlock = `
                     <div class="row g-2 mb-3" style="background:#21262d;border-radius:8px;padding:8px 0">
                         <div class="col-6 col-md-3">
-                            <div class="stat-label">Current P&L</div>
+                            <div class="stat-label">You Hold</div>
+                            <div class="fw-bold">${holdQty} shares @ ₹${fmtDec(entryPrice)}</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-label">Sell ${sellQty} @ CMP</div>
+                            <div class="fw-bold">₹${fmtDec(r.current_price)}</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-label">P&L on Sale</div>
                             <div class="fw-bold ${gainClass}">₹${fmt(gain)}
                                 <small>(${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(1)}%)</small>
                             </div>
                         </div>
                         <div class="col-6 col-md-3">
-                            <div class="stat-label">Holding</div>
+                            <div class="stat-label">Holding Period</div>
                             <div class="fw-bold">${tax.holding || 'N/A'}
                                 <small class="badge ${tax.type === 'LTCG' ? 'bg-success' : 'bg-warning text-dark'} ms-1" style="font-size:.65rem">${tax.type}</small>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
+                    </div>
+                    <div class="row g-2 mb-3" style="background:#21262d;border-radius:8px;padding:8px 0">
+                        <div class="col-4">
                             <div class="stat-label">Tax @${tax.rate}%</div>
                             <div class="fw-bold ${tax.tax > 0 ? 'pnl-negative' : ''}">-₹${fmt(tax.tax)}</div>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-4">
                             <div class="stat-label">Net Profit</div>
                             <div class="fw-bold ${netClass}">₹${fmt(netProfit)}</div>
                         </div>
+                        <div class="col-4">
+                            <div class="stat-label">Net per Share</div>
+                            <div class="fw-bold ${netClass}">₹${sellQty > 0 ? fmtDec(netProfit/sellQty) : '0'}</div>
+                        </div>
                     </div>`;
                 } else if (r.action === 'BUY' && h) {
-                    // Already holding — show current unrealised P&L
                     const unrealised = (r.current_price - h.avg_price) * h.quantity;
                     const unrealisedPct = h.avg_price > 0 ? ((r.current_price - h.avg_price) / h.avg_price * 100) : 0;
                     const uClass = unrealised >= 0 ? 'pnl-positive' : 'pnl-negative';

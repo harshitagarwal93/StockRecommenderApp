@@ -320,11 +320,29 @@ def analyze(
             "risk_assessment": "Unable to assess",
         }
 
-    # Filter out any HOLD recommendations and add analysis URLs
-    recs = [r for r in result.get("recommendations", []) if r.get("action", "").upper() != "HOLD"]
-    result["recommendations"] = recs
+    # Filter out HOLD, validate SELL only for held stocks, enrich with holding data
+    held_map = {h["ticker"]: h for h in portfolio.holdings}
+    valid_recs = []
+    for rec in result.get("recommendations", []):
+        action = rec.get("action", "").upper()
+        if action == "HOLD":
+            continue
+        ticker = rec.get("ticker", "")
+        if action == "SELL" and ticker not in held_map:
+            logger.warning("Filtered SELL for %s — not in portfolio", ticker)
+            continue
+        # Enrich SELL with holding data
+        if action == "SELL" and ticker in held_map:
+            h = held_map[ticker]
+            rec["holding_qty"] = h.get("quantity", 0)
+            rec["entry_price"] = h.get("avg_price", 0)
+            rec["buy_date"] = h.get("buy_date", "")
+            if rec.get("quantity", 0) == 0 or rec.get("quantity", 0) > h.get("quantity", 0):
+                rec["quantity"] = h.get("quantity", 0)
+        valid_recs.append(rec)
+    result["recommendations"] = valid_recs
 
-    for rec in recs:
+    for rec in valid_recs:
         symbol = rec.get("ticker", "").replace(".NS", "")
         rec["technicals_url"] = f"https://www.tradingview.com/chart/?symbol=NSE:{symbol}"
         rec["fundamentals_url"] = f"https://www.screener.in/company/{symbol}/"
