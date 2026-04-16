@@ -89,18 +89,19 @@ IMPORTANT: A quality franchise (ROE >20%, margin >15%) trading at its NORMAL his
 - Confidence: HIGH = strong fundamentals + attractive valuation + decent entry, MEDIUM = good but some data gaps, LOW = conflicting signals
 
 ## VALUE INVESTING RULES
-- HIGH ABSOLUTE PE ≠ OVERVALUED. A stock trading at PE 70 with 90d avg PE of 72 is at FAIR value, not expensive. Only penalize PE if it is significantly ABOVE its own 90d average
-- Quality franchises (ROE >20%, margin >15%, revenue growth >10%) DESERVE premium valuations — do NOT recommend SELL just because PE is high
-- A stock trading 40% below 52W high with STRONG fundamentals is a BUY candidate, not a SELL
-- A stock at 52W high with WEAK fundamentals (ROE <10%, D/E >2) and PE above 90d avg is a SELL
-- NEVER sell just because price dropped — only if fundamental thesis is broken (ROE collapsed, debt surged, revenue declining)
+- HIGH ABSOLUTE PE ≠ OVERVALUED. Only penalize PE if significantly ABOVE its own 90d average
+- Quality franchises (ROE >20%, margin >15%) DESERVE premium valuations
+- A stock 40% below 52W high with STRONG fundamentals (ROE >15%, growing revenue, low debt) is a BUY candidate
+- But a stock 40% below 52W high with WEAK fundamentals (ROE <10%, negative growth, high debt, no moat) IS a value trap — recommend SELL
+- Do NOT blindly hold losers. If a stock has dropped significantly AND its fundamentals are weak, it is a SELL regardless of price drop
+- A stock at 52W high with weak fundamentals and PE above 90d avg is a SELL
 - Total cost of ALL BUY recommendations must NOT exceed the TOTAL_INVESTMENT_BUDGET
 - Only recommend SELL for stocks currently held in the portfolio
 - Do NOT include stocks scoring 5.0-6.9 — omit them (HOLD is implicit)
 - Never fabricate data. Every metric cited MUST come from the data provided
 - If no stock meets criteria, return ZERO recommendations
 - Risk:Reward >= 1:2 for BUY; target based on intrinsic value estimate
-- For SELL: target_price = expected downside price; stop_loss = price above which sell thesis is wrong (re-entry point). NEVER set these to 0
+- For SELL: target_price = expected downside price the stock may fall to; stop_loss = price above which sell thesis is wrong. NEVER set target or stop_loss to 0
 """
 
 USER_PROMPT_TEMPLATE = """\
@@ -161,9 +162,9 @@ Respond ONLY with valid JSON. No preamble, no markdown fences, no text outside J
 """
 
 MODE_INSTRUCTIONS = {
-    "all": "Score ALL candidates using (Fundamental x 0.75 + Technical x 0.25). BUY if composite >= 7.0 (quality + undervalued). SELL holdings with composite < 5.0 (deteriorating or overvalued). Omit 5.0-6.9. Prioritize margin of safety over momentum.",
-    "buy": "Score ALL candidates. Include only composite >= 7.0 as BUY. Look for quality businesses trading below intrinsic value with margin of safety. Allocate within budget. No SELL.",
-    "sell": "Score ALL current holdings. Include only composite < 5.0 as SELL. Sell only if fundamentals have deteriorated, thesis is broken, or stock is significantly overvalued. Do NOT sell just because price has dropped. No BUY.",
+    "all": "Score ALL candidates using (Fundamental x 0.75 + Technical x 0.25). BUY if composite >= 7.0. SELL holdings with composite < 5.0 — especially value traps (big price drops WITH weak fundamentals). Omit 5.0-6.9.",
+    "buy": "Score ALL candidates. Include only composite >= 7.0 as BUY. Look for quality at attractive valuations. No SELL.",
+    "sell": "Score ALL current holdings. SELL if composite < 5.0. Look specifically for value traps: stocks that have fallen significantly AND have weak fundamentals (low ROE, high debt, negative growth). These should be exited. A big price drop alone is not reason to sell if fundamentals are strong — but a big drop WITH weak fundamentals IS a clear SELL. No BUY.",
 }
 
 
