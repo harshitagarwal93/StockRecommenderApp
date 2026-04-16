@@ -19,19 +19,23 @@ logger = logging.getLogger(__name__)
 TOP_CANDIDATES = 20
 
 
-def run_daily_analysis(config: Config | None = None, max_buy_amount: float | None = None, mode: str = "all") -> DailyRecommendation:
+def run_daily_analysis(config: Config | None = None, max_buy_amount: float | None = None, mode: str = "all", persist: bool = True) -> DailyRecommendation:
     """Execute the full daily analysis pipeline.
 
     mode: "all" (default), "buy" (buy-only), "sell" (sell-only)
+    persist: if True, save recommendation to CosmosDB (False for ad-hoc runs)
     """
     if config is None:
         config = Config()
 
+    # Use a copy to avoid mutating the singleton config
+    from dataclasses import replace as dc_replace
+    run_config = dc_replace(config)
     if max_buy_amount is not None and max_buy_amount > 0:
-        config.max_buy_amount = max_buy_amount
+        run_config.max_buy_amount = max_buy_amount
 
-    store = CosmosStore(config)
-    pm = PortfolioManager(config, store)
+    store = CosmosStore(run_config)
+    pm = PortfolioManager(run_config, store)
     portfolio = pm.get_portfolio()
     universe = get_full_universe()
 
@@ -111,17 +115,20 @@ def run_daily_analysis(config: Config | None = None, max_buy_amount: float | Non
     )
 
     # Step 6: LLM analysis
-    recommendation = llm_analyze(config, analysis_portfolio, top, mode=mode, store=store)
+    recommendation = llm_analyze(run_config, analysis_portfolio, top, mode=mode, store=store)
 
     # Store all holdings (including excluded) for UI display
     recommendation.kite_holdings = portfolio.holdings
 
-    # Step 7: Persist
-    pm.save_recommendation(recommendation)
-    logger.info("Recommendation saved: %s", recommendation.id)
+    # Step 7: Persist (only for scheduled runs, not ad-hoc)
+    if persist:
+        pm.save_recommendation(recommendation)
+        logger.info("Recommendation saved: %s", recommendation.id)
+    else:
+        logger.info("Ad-hoc run — not persisted")
 
     # Step 8: Email
-    send_recommendation_email(config, recommendation)
+    send_recommendation_email(run_config, recommendation)
 
     return recommendation
 

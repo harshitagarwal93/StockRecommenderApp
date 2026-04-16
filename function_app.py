@@ -85,7 +85,7 @@ def trigger_analysis(req: func.HttpRequest) -> func.HttpResponse:
                 mode = "all"
         except ValueError:
             pass
-        rec = run_daily_analysis(config=_config, max_buy_amount=max_buy_amount, mode=mode)
+        rec = run_daily_analysis(config=_config, max_buy_amount=max_buy_amount, mode=mode, persist=False)
         return func.HttpResponse(json.dumps(rec.to_dict(), default=str), mimetype="application/json")
     except Exception as e:
         return func.HttpResponse(json.dumps({"error": str(e)}), status_code=500, mimetype="application/json")
