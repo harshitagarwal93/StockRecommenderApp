@@ -111,7 +111,7 @@ def run_daily_analysis(config: Config | None = None, max_buy_amount: float | Non
     )
 
     # Step 6: LLM analysis
-    recommendation = llm_analyze(config, analysis_portfolio, top, mode=mode)
+    recommendation = llm_analyze(config, analysis_portfolio, top, mode=mode, store=store)
 
     # Store all holdings (including excluded) for UI display
     recommendation.kite_holdings = portfolio.holdings

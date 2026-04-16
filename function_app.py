@@ -42,6 +42,20 @@ def daily_stock_analysis(timer: func.TimerRequest) -> None:
         logger.exception("Daily analysis failed")
 
 
+@app.timer_trigger(schedule="0 0 11 * * 1-5", arg_name="timer", run_on_startup=False)
+def post_market_review(timer: func.TimerRequest) -> None:
+    """Runs Mon-Fri at 16:30 IST (11:00 UTC) — after market close.
+    Reviews past recommendations vs actual outcomes and improves the prompt."""
+    logger.info("=== Post-Market Prompt Review Started ===")
+    try:
+        from stock_advisor.self_improve import run_self_improvement
+        result = run_self_improvement(_config)
+        logger.info("Review done: %s — %d changes applied, accuracy %.0f%%",
+                     result.get("status"), result.get("changes_applied", 0), result.get("accuracy", 0))
+    except Exception:
+        logger.exception("Post-market review failed")
+
+
 @app.route(route="recommendation", methods=["GET"])
 def get_recommendation(req: func.HttpRequest) -> func.HttpResponse:
     rec = _pm().get_latest_recommendation()
@@ -95,6 +109,34 @@ def get_settings(req: func.HttpRequest) -> func.HttpResponse:
         "kite_connected": token_valid,
         "kite_login_url": f"https://kite.zerodha.com/connect/login?v=3&api_key={_config.kite_api_key}" if _config.kite_api_key else "",
     }), mimetype="application/json")
+
+
+# ---------------------------------------------------------------------------
+# Prompt Changelog & Self-Improvement
+# ---------------------------------------------------------------------------
+
+@app.route(route="prompt/changelog", methods=["GET"])
+def get_prompt_changelog(req: func.HttpRequest) -> func.HttpResponse:
+    """Return prompt changelog history."""
+    from stock_advisor.prompt_manager import get_prompt_changelog, load_active_prompt
+    changelog = get_prompt_changelog(_store, limit=20)
+    active = load_active_prompt(_store)
+    return func.HttpResponse(json.dumps({
+        "current_version": active.get("version", 1),
+        "last_updated": active.get("last_updated", ""),
+        "changelog": changelog,
+    }, default=str), mimetype="application/json")
+
+
+@app.route(route="prompt/review", methods=["POST"])
+def trigger_prompt_review(req: func.HttpRequest) -> func.HttpResponse:
+    """Manually trigger prompt self-improvement review."""
+    try:
+        from stock_advisor.self_improve import run_self_improvement
+        result = run_self_improvement(_config)
+        return func.HttpResponse(json.dumps(result, default=str), mimetype="application/json")
+    except Exception as e:
+        return func.HttpResponse(json.dumps({"error": str(e)}), status_code=500, mimetype="application/json")
 
 
 # ---------------------------------------------------------------------------

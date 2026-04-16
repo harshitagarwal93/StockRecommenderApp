@@ -234,6 +234,7 @@ def analyze(
     portfolio: Portfolio,
     candidates: list[StockAnalysis],
     mode: str = "all",
+    store: "CosmosStore | None" = None,
 ) -> DailyRecommendation:
     """Send portfolio + candidate data to the LLM and parse recommendations.
 
@@ -245,7 +246,14 @@ def analyze(
     total_value = portfolio.cash_balance + holdings_value
     mode_instruction = MODE_INSTRUCTIONS.get(mode, MODE_INSTRUCTIONS["all"])
 
-    system_prompt = SYSTEM_PROMPT.format(max_alloc=config.max_single_allocation_pct)
+    # Load prompt from DB if available, else use hardcoded default
+    if store:
+        from .prompt_manager import load_active_prompt
+        prompt_doc = load_active_prompt(store)
+        system_prompt = prompt_doc.get("system_prompt", SYSTEM_PROMPT)
+    else:
+        system_prompt = SYSTEM_PROMPT
+    system_prompt = system_prompt.format(max_alloc=config.max_single_allocation_pct)
 
     user_prompt = USER_PROMPT_TEMPLATE.format(
         date=date.today().isoformat(),

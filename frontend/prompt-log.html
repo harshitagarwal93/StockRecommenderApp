@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Evolution — Stock Advisor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0d1117; }
+        .navbar { background: linear-gradient(135deg, #161b22 0%, #1c2333 100%) !important; border-bottom: 1px solid #30363d; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; }
+        .version-badge { font-size: .85rem; padding: 4px 12px; border-radius: 16px; background: rgba(111,66,193,.15); color: #a371f7; border: 1px solid rgba(111,66,193,.3); }
+        .change-row { background: #21262d; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+        .old-text { background: rgba(220,53,69,.08); border-left: 3px solid #dc3545; padding: 8px 12px; border-radius: 0 6px 6px 0; font-size: .85rem; font-family: monospace; color: #f85149; }
+        .new-text { background: rgba(40,167,69,.08); border-left: 3px solid #28a745; padding: 8px 12px; border-radius: 0 6px 6px 0; font-size: .85rem; font-family: monospace; color: #3fb950; }
+        .summary-pill { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 8px 14px; font-size: .9rem; }
+        .stat-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: #8b949e; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #8b949e; }
+    </style>
+</head>
+<body>
+    <nav class="navbar sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="index.html">
+                <i class="bi bi-graph-up-arrow text-primary fs-4"></i>
+                <span class="fw-bold">Stock Advisor</span>
+                <span class="badge bg-primary bg-opacity-25 text-primary ms-2" style="font-size:.7rem">AI</span>
+            </a>
+            <div class="d-flex align-items-center gap-2">
+                <a href="index.html" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Dashboard
+                </a>
+                <a href="search.html" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-search me-1"></i>Analyze
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+            <div>
+                <h4 class="mb-1"><i class="bi bi-journal-code me-2"></i>Prompt Evolution</h4>
+                <p class="text-secondary mb-0">How the AI's analysis logic improves over time based on recommendation accuracy</p>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="text-end">
+                    <div class="stat-label">Current Version</div>
+                    <span class="version-badge" id="currentVersion">v1</span>
+                </div>
+                <button class="btn btn-sm btn-outline-warning" onclick="triggerReview()" id="reviewBtn">
+                    <i class="bi bi-arrow-repeat me-1"></i>Run Review Now
+                </button>
+            </div>
+        </div>
+
+        <!-- How it works -->
+        <div class="card p-3 mb-4">
+            <h6 class="mb-2"><i class="bi bi-info-circle text-primary me-2"></i>How it works</h6>
+            <div class="row g-2 text-secondary" style="font-size:.85rem">
+                <div class="col-md-3"><i class="bi bi-clock me-1"></i>Every day at 4:30 PM IST (after market close)</div>
+                <div class="col-md-3"><i class="bi bi-bar-chart me-1"></i>Reviews past 7 days of BUY/SELL recommendations</div>
+                <div class="col-md-3"><i class="bi bi-cpu me-1"></i>Compares recommended prices to actual outcomes</div>
+                <div class="col-md-3"><i class="bi bi-pencil me-1"></i>Suggests & applies prompt improvements (max 3/day)</div>
+            </div>
+        </div>
+
+        <!-- Changelog -->
+        <div id="changelogContainer">
+            <div class="d-flex align-items-center justify-content-center py-5">
+                <div class="spinner-border text-primary me-3" role="status"></div>
+                <span class="text-secondary">Loading changelog...</span>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center py-4 border-top border-secondary border-opacity-25">
+        <small class="text-secondary">
+            Prompt changes are applied automatically. Only generalizable improvements are made — no single-stock overfitting.
+        </small>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? '' : 'https://stock-advisor-func.azurewebsites.net';
+
+        async function loadChangelog() {
+            const container = document.getElementById('changelogContainer');
+            try {
+                const res = await fetch(`${API_BASE}/api/prompt/changelog`);
+                if (!res.ok) throw new Error('Failed to load');
+                const data = await res.json();
+
+                document.getElementById('currentVersion').textContent = `v${data.current_version}`;
+
+                const entries = data.changelog || [];
+                if (entries.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-journal" style="font-size:3rem;display:block;margin-bottom:1rem"></i>
+                            <h5>No prompt changes yet</h5>
+                            <p>The AI will start reviewing recommendations after the first few days of data.<br>
+                            Changes will appear here once applied.</p>
+                        </div>`;
+                    return;
+                }
+
+                container.innerHTML = entries.map(entry => {
+                    const changes = entry.changes || [];
+                    const d = new Date(entry.date);
+                    const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                    const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+                    return `
+                    <div class="card p-4 mb-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
+                            <div>
+                                <span class="version-badge me-2">v${entry.version}</span>
+                                <span class="text-secondary" style="font-size:.85rem">${dateStr} at ${timeStr}</span>
+                            </div>
+                            <span class="badge bg-success bg-opacity-25 text-success">${changes.length} change${changes.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <p class="mb-3" style="font-size:.9rem">${entry.reason || 'Automated review'}</p>
+
+                        <table class="table table-sm mb-0" style="font-size:.85rem">
+                            <thead>
+                                <tr style="border-bottom:1px solid #30363d">
+                                    <th style="color:#8b949e;width:20%">What Changed</th>
+                                    <th style="color:#f85149;width:35%">Before</th>
+                                    <th style="color:#3fb950;width:35%">After</th>
+                                    <th style="color:#8b949e;width:10%">Why</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${changes.map(c => `
+                                <tr>
+                                    <td><strong>${c.summary || c.section || 'Update'}</strong></td>
+                                    <td><div class="old-text">${escHtml(c.old || '')}</div></td>
+                                    <td><div class="new-text">${escHtml(c.new || '')}</div></td>
+                                    <td><small class="text-secondary">${c.reason || ''}</small></td>
+                                </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="empty-state"><p class="text-secondary">Failed to load changelog</p></div>`;
+            }
+        }
+
+        function escHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+        }
+
+        async function triggerReview() {
+            const btn = document.getElementById('reviewBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Reviewing...';
+
+            try {
+                const res = await fetch(`${API_BASE}/api/prompt/review`, { method: 'POST' });
+                const data = await res.json();
+                if (data.error) {
+                    alert('Review failed: ' + data.error);
+                } else {
+                    alert(`Review complete!\n\nAccuracy: ${data.accuracy?.toFixed(0) || 'N/A'}%\nChanges applied: ${data.changes_applied || 0}\nRecommendations reviewed: ${data.recommendations_reviewed || 0}\n\n${data.assessment || ''}`);
+                    loadChangelog();
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Run Review Now';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadChangelog);
+    </script>
+</body>
+</html>
