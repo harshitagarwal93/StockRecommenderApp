@@ -476,16 +476,16 @@
 
                     <div class="row g-2 mb-3">
                         <div class="col-6">
-                            <div class="stat-label">Target</div>
-                            <div class="fw-bold pnl-positive">₹${fmtDec(r.target_price)}
-                                <small>(+${(((r.target_price - r.current_price) / r.current_price) * 100).toFixed(1)}%)</small>
-                            </div>
+                            <div class="stat-label">${r.action === 'SELL' ? 'Expected Downside' : 'Target'}</div>
+                            ${r.target_price > 0 ? `<div class="fw-bold ${r.action === 'SELL' ? 'pnl-negative' : 'pnl-positive'}">₹${fmtDec(r.target_price)}
+                                <small>(${(((r.target_price - r.current_price) / r.current_price) * 100).toFixed(1)}%)</small>
+                            </div>` : `<div class="text-secondary">N/A</div>`}
                         </div>
                         <div class="col-6">
-                            <div class="stat-label">Stop Loss</div>
-                            <div class="fw-bold pnl-negative">₹${fmtDec(r.stop_loss)}
+                            <div class="stat-label">${r.action === 'SELL' ? 'Re-entry Above' : 'Stop Loss'}</div>
+                            ${r.stop_loss > 0 ? `<div class="fw-bold ${r.action === 'SELL' ? 'pnl-positive' : 'pnl-negative'}">₹${fmtDec(r.stop_loss)}
                                 <small>(${(((r.stop_loss - r.current_price) / r.current_price) * 100).toFixed(1)}%)</small>
-                            </div>
+                            </div>` : `<div class="text-secondary">N/A</div>`}
                         </div>
                     </div>
 

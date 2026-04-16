@@ -100,6 +100,7 @@ IMPORTANT: A quality franchise (ROE >20%, margin >15%) trading at its NORMAL his
 - Never fabricate data. Every metric cited MUST come from the data provided
 - If no stock meets criteria, return ZERO recommendations
 - Risk:Reward >= 1:2 for BUY; target based on intrinsic value estimate
+- For SELL: target_price = expected downside price; stop_loss = price above which sell thesis is wrong (re-entry point). NEVER set these to 0
 """
 
 USER_PROMPT_TEMPLATE = """\
