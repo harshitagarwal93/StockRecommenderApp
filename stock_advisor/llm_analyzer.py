@@ -97,7 +97,7 @@ IMPORTANT: A quality franchise (ROE >20%, margin >15%) trading at its NORMAL his
 - A stock at 52W high with weak fundamentals and PE above 90d avg is a SELL
 - Total cost of ALL BUY recommendations must NOT exceed the TOTAL_INVESTMENT_BUDGET
 - Only recommend SELL for stocks currently held in the portfolio
-- Do NOT recommend BUY for stocks already held in the portfolio — the user already owns them. Only recommend BUY for NEW stocks not currently held
+- Do NOT recommend BUY for stocks already held in the portfolio UNLESS there is a strong case to add more. If recommending BUY for an already-held stock, set action to "ADD" and explain why adding more is warranted beyond the existing position
 - Do NOT include stocks scoring 5.0-6.9 — omit them (HOLD is implicit)
 - Never fabricate data. Every metric cited MUST come from the data provided
 - If no stock meets criteria, return ZERO recommendations
@@ -333,9 +333,9 @@ def analyze(
         if action == "SELL" and ticker not in held_map:
             logger.warning("Filtered SELL for %s — not in portfolio", ticker)
             continue
+        # Mark BUY for already-held stocks as ADD
         if action == "BUY" and ticker in held_map:
-            logger.warning("Filtered BUY for %s — already held", ticker)
-            continue
+            rec["action"] = "ADD"
         # Enrich SELL with holding data
         if action == "SELL" and ticker in held_map:
             h = held_map[ticker]
