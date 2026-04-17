@@ -443,21 +443,26 @@
                             <div class="fw-bold ${netClass}">₹${sellQty > 0 ? fmtDec(netProfit/sellQty) : '0'}</div>
                         </div>
                     </div>`;
-                } else if (r.action === 'BUY' && h) {
+                } else if ((r.action === 'BUY' || r.action === 'ADD') && h) {
                     const unrealised = (r.current_price - h.avg_price) * h.quantity;
                     const unrealisedPct = h.avg_price > 0 ? ((r.current_price - h.avg_price) / h.avg_price * 100) : 0;
                     const uClass = unrealised >= 0 ? 'pnl-positive' : 'pnl-negative';
+                    const newTotal = h.quantity + (r.quantity || 0);
                     pnlBlock = `
                     <div class="row g-2 mb-3" style="background:#21262d;border-radius:8px;padding:8px 0">
-                        <div class="col-6">
-                            <div class="stat-label">Existing Holding P&L</div>
+                        <div class="col-4">
+                            <div class="stat-label">Already Hold</div>
+                            <div class="fw-bold">${h.quantity} shares @ ₹${fmtDec(h.avg_price)}</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-label">Current P&L</div>
                             <div class="fw-bold ${uClass}">₹${fmt(unrealised)}
                                 <small>(${unrealisedPct >= 0 ? '+' : ''}${unrealisedPct.toFixed(1)}%)</small>
                             </div>
                         </div>
-                        <div class="col-6">
-                            <div class="stat-label">Held Qty</div>
-                            <div class="fw-bold">${h.quantity} @ ₹${fmtDec(h.avg_price)}</div>
+                        <div class="col-4">
+                            <div class="stat-label">${r.action === 'ADD' ? 'After Adding' : 'After Buying'}</div>
+                            <div class="fw-bold">${newTotal} shares total</div>
                         </div>
                     </div>`;
                 }
