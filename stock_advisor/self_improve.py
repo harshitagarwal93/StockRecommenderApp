@@ -18,7 +18,7 @@ import yfinance as yf
 
 from .config import Config
 from .cosmos_store import CosmosStore
-from .prompt_manager import load_active_prompt, save_prompt
+from .prompt_manager import load_active_prompt, save_prompt, get_prompt_changelog
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +208,16 @@ def run_self_improvement(config: Config) -> dict:
                 result.get("accuracy_assessment", "Automated review"),
             )
             logger.info("Applied %d prompt changes (v%d → v%d)", len(applied_changes), current_version, new_version)
+
+            # Cleanup: keep only last 5 changelog entries
+            all_logs = get_prompt_changelog(store, limit=50)
+            if len(all_logs) > 5:
+                for old_log in all_logs[5:]:
+                    try:
+                        store._container.delete_item(item=old_log["id"], partition_key="prompt-changelog")
+                    except Exception:
+                        pass
+                logger.info("Cleaned up %d old changelog entries", len(all_logs) - 5)
 
     # 6. Cleanup old recommendations (>7 days)
     cleanup_count = 0

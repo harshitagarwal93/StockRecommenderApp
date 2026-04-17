@@ -119,7 +119,7 @@ def get_settings(req: func.HttpRequest) -> func.HttpResponse:
 def get_prompt_changelog(req: func.HttpRequest) -> func.HttpResponse:
     """Return prompt changelog history."""
     from stock_advisor.prompt_manager import get_prompt_changelog, load_active_prompt
-    changelog = get_prompt_changelog(_store, limit=20)
+    changelog = get_prompt_changelog(_store, limit=5)
     active = load_active_prompt(_store)
     return func.HttpResponse(json.dumps({
         "current_version": active.get("version", 1),

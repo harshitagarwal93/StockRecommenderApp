@@ -145,7 +145,7 @@ def save_prompt(store: CosmosStore, system_prompt: str, version: int, changes: l
     logger.info("Prompt updated to v%d: %s", version, reason)
 
 
-def get_prompt_changelog(store: CosmosStore, limit: int = 10) -> list[dict]:
+def get_prompt_changelog(store: CosmosStore, limit: int = 5) -> list[dict]:
     """Return recent prompt changelog entries."""
     docs = store.query(
         "SELECT TOP @limit * FROM c WHERE c.type = @type ORDER BY c.version DESC",
