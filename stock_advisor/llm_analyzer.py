@@ -345,6 +345,10 @@ def analyze(
             if rec.get("quantity", 0) == 0 or rec.get("quantity", 0) > h.get("quantity", 0):
                 rec["quantity"] = h.get("quantity", 0)
         valid_recs.append(rec)
+
+    # Sort by confidence: HIGH first, then MEDIUM, then LOW
+    confidence_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+    valid_recs.sort(key=lambda r: confidence_order.get(r.get("confidence", "LOW").upper(), 3))
     result["recommendations"] = valid_recs
 
     for rec in valid_recs:
