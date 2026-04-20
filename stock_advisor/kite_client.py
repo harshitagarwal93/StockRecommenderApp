@@ -71,18 +71,31 @@ def fetch_kite_holdings(config: Config) -> list[dict]:
         ticker = kite_to_yfinance(h.get("tradingsymbol", ""))
         if not ticker:
             continue
-        combined[ticker] = {
-            "ticker": ticker,
-            "name": h.get("tradingsymbol", ""),
-            "quantity": h.get("quantity", 0),
-            "avg_price": h.get("average_price", 0),
-            "current_price": h.get("last_price", 0),
-            "pnl": h.get("pnl", 0),
-            "buy_date": h.get("opening_date", ""),
-            "exchange": h.get("exchange", "NSE"),
-            "excluded": ticker in excluded,
-            "category": "LARGE_CAP",
-        }
+        qty = h.get("quantity", 0)
+        if ticker in combined:
+            # Same stock from different exchange — aggregate
+            existing = combined[ticker]
+            old_qty = existing["quantity"]
+            old_avg = existing["avg_price"]
+            new_total = old_qty + qty
+            if new_total > 0:
+                existing["avg_price"] = round(((old_qty * old_avg) + (qty * h.get("average_price", 0))) / new_total, 2)
+            existing["quantity"] = new_total
+            existing["current_price"] = h.get("last_price", 0) or existing["current_price"]
+            existing["pnl"] = existing.get("pnl", 0) + h.get("pnl", 0)
+        else:
+            combined[ticker] = {
+                "ticker": ticker,
+                "name": h.get("tradingsymbol", ""),
+                "quantity": qty,
+                "avg_price": h.get("average_price", 0),
+                "current_price": h.get("last_price", 0),
+                "pnl": h.get("pnl", 0),
+                "buy_date": h.get("opening_date", ""),
+                "exchange": h.get("exchange", "NSE"),
+                "excluded": ticker in excluded,
+                "category": "LARGE_CAP",
+            }
 
     # Add delivery positions not already in holdings
     for p in positions:
