@@ -97,12 +97,20 @@ def fetch_kite_holdings(config: Config) -> list[dict]:
                 "category": "LARGE_CAP",
             }
 
-    # Add delivery positions not already in holdings
+    # Merge delivery positions — update zero-qty holdings or add new entries
     for p in positions:
         if p.get("product", "") != "CNC":
             continue
         ticker = kite_to_yfinance(p.get("tradingsymbol", ""))
-        if ticker and ticker not in combined and p.get("quantity", 0) > 0:
+        if not ticker or p.get("quantity", 0) <= 0:
+            continue
+        if ticker in combined and combined[ticker]["quantity"] == 0:
+            # Holdings had qty=0 but positions has actual shares — use position data
+            combined[ticker]["quantity"] = p.get("quantity", 0)
+            combined[ticker]["avg_price"] = p.get("average_price", 0) or combined[ticker]["avg_price"]
+            combined[ticker]["current_price"] = p.get("last_price", 0) or combined[ticker]["current_price"]
+            combined[ticker]["pnl"] = p.get("pnl", 0)
+        elif ticker not in combined:
             combined[ticker] = {
                 "ticker": ticker,
                 "name": p.get("tradingsymbol", ""),
@@ -115,6 +123,9 @@ def fetch_kite_holdings(config: Config) -> list[dict]:
                 "excluded": ticker in excluded,
                 "category": "LARGE_CAP",
             }
+
+    # Remove holdings with no shares after merging both sources
+    combined = {t: h for t, h in combined.items() if h.get("quantity", 0) > 0}
 
     logger.info("Fetched %d holdings from Kite (%d excluded)", len(combined), sum(1 for h in combined.values() if h.get("excluded")))
     return list(combined.values())
