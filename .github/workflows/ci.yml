@@ -1,0 +1,100 @@
+name: CI
+
+# Sanity checks for the Stock Advisor app.
+# Runs on every pull request to main and on every push/merge to main.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  sanity:
+    name: Sanity checks (Python 3.11)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # matches the Azure Functions runtime
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Dependency consistency (pip check)
+        run: pip check
+
+      - name: Lint - syntax and undefined names (ruff)
+        run: |
+          pip install ruff
+          ruff check --select E9,F63,F7,F82 .
+
+      - name: Byte-compile all sources
+        run: python -m compileall -q function_app.py main.py webapp.py stock_advisor
+
+      - name: Import smoke test (offline)
+        env:
+          OPENAI_API_KEY: dummy # dummy value; no network calls are made on import
+        run: |
+          python - <<'PY'
+          import importlib
+
+          modules = [
+              "config", "models", "technical_analysis", "data_fetcher",
+              "cosmos_store", "portfolio_manager", "orchestrator", "llm_analyzer",
+              "kite_client", "notifier", "prompt_manager", "self_improve", "single_stock",
+          ]
+          for m in modules:
+              importlib.import_module("stock_advisor." + m)
+
+          # With no COSMOS_ENDPOINT set, CosmosStore falls back to local storage,
+          # so the Function App and Flask app import cleanly without any secrets.
+          import function_app  # noqa: F401
+          import webapp  # noqa: F401
+          print("import smoke test: OK")
+          PY
+
+      - name: Functional smoke test (technical indicators)
+        run: |
+          python - <<'PY'
+          import math
+          import pandas as pd
+          from stock_advisor.technical_analysis import compute_indicators, composite_score
+
+          n = 260
+          close = [100 + math.sin(i / 6) * 8 + i * 0.05 for i in range(n)]
+          df = pd.DataFrame(
+              {
+                  "Open": close,
+                  "High": [c + 1 for c in close],
+                  "Low": [c - 1 for c in close],
+                  "Close": close,
+                  "Volume": [1_000_000 + i * 1000 for i in range(n)],
+              },
+              index=pd.date_range("2023-01-01", periods=n, freq="D"),
+          )
+          ti = compute_indicators("TEST.NS", df)
+          score = composite_score(ti)
+          assert 0 <= ti.rsi_14 <= 100, ti.rsi_14
+          assert 0 <= score <= 100, score
+          print(f"functional smoke test: OK (RSI={ti.rsi_14}, score={score})")
+          PY
+
+      - name: Security audit (pip-audit)
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
